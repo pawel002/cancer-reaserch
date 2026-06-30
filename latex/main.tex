@@ -1,0 +1,934 @@
+
+\documentclass[runningheads]{llncs}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,longtable,array,calc}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{caption}
+\captionsetup{
+    font=small
+}
+\usepackage[
+    font=footnotesize,
+    labelfont=bf
+]{caption}
+
+\usepackage{titlesec}
+
+\titlespacing*{\section}
+{0pt}{2.0ex plus 0.8ex minus 0.3ex}{1.2ex}
+
+\titlespacing*{\subsection}
+{0pt}{1.5ex plus 0.5ex minus 0.2ex}{0.8ex}
+
+\renewcommand{\figurename}{Figure}
+
+\captionsetup[figure]{skip=2pt}
+\captionsetup[table]{skip=2pt}
+\setlength{\textfloatsep}{4pt}
+\setlength{\floatsep}{2pt}
+\setlength{\intextsep}{2pt}
+\setlength{\abovedisplayskip}{1pt}
+\setlength{\belowdisplayskip}{1pt}
+
+\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\newcommand{\real}[1]{#1}
+\begin{document}
+\title{Physics-Informed Closure Learning for Reduced Radiotherapy Tumor Dynamics}
+\titlerunning{Physics-Inspired Closure Learning}
+\author{Paweł Jarosz\and Igor Zakrocki\and Witold Dzwinel}
+\authorrunning{P. Jarosz et al.}
+\institute{AGH University of Krakow, WI Department of Computer Science\\
+\email{\{zakrocki@student.agh.edu.pl, pawjarosz@student.agh.edu.pl, dzwinel@agh.edu.pl\}}}
+\maketitle
+\begin{abstract}
+High-fidelity radiotherapy models based on spatio-temporal partial
+differential equations are computationally too expensive for interactive
+therapy-planning systems and emerging Language--Driven Therapy Design
+frameworks based on LLMs and RAG architectures. In this work, we
+investigate whether physics-informed machine learning methods can
+compensate for information loss introduced during aggressive reduction
+of spatial tumor models to low-dimensional ordinary differential
+equation (ODE) surrogates.
+We compare classical ODE surrogates, purely data-driven Neural ODEs
+(NODEs), and physics-informed residual neural models (PI-NODEs) in
+radiotherapy scenarios involving incomplete overlap between tumor and
+irradiation regions. The proposed PI-NODE combines a mechanistic
+radiotherapy model with a learnable residual closure term.
+The results demonstrate that reduced ODE surrogates absorb unresolved
+spatial effects into distorted effective parameters, while purely
+data-driven NODEs exhibit limited extrapolation stability. In contrast,
+the proposed PI-NODE formulation preserves physically interpretable
+parameters while partially reconstructing unresolved spatial dynamics
+eliminated during PDE-to-ODE reduction.
+
+\keywords{Physics-informed machine learning \and Neural ODE \and Surrogate modeling \and Radiotherapy \and Data assimilation}
+\end{abstract}
+
+\section{Introduction}
+
+Modern oncology increasingly relies on computational models for
+predicting tumor evolution and optimizing anticancer therapies. In
+particular, recent advances in Large Language Models (LLMs) and
+Retrieval-Augmented Generation (RAG) systems have opened the possibility
+of developing interactive frameworks for Language--Driven Therapy Design
+(LDTD), where clinicians can explore treatment scenarios and control
+predictive simulations through natural language \cite{reka2026conversational}. However, practical
+implementation of such systems requires simulation engines operating in
+near real-time, which remains infeasible for complex mechanistic tumor
+models involving high-dimensional spatial dynamics and computationally
+expensive partial differential equations.
+
+A natural solution is the use of surrogate models that approximate the
+behavior of detailed mechanistic simulations at a much lower
+computational cost. Nevertheless, aggressive model reduction -
+especially the elimination of spatial information - introduces
+substantial challenges. Reduced ordinary differential equation (ODE)
+models frequently fail to capture important effects arising from tumor
+geometry, spatial heterogeneity, and mismatches between tumor and
+treatment-field geometry. As a consequence, unresolved spatial dynamics
+are often absorbed into distorted effective model parameters, leading to
+biased predictions and reduced interpretability.
+
+In this work, we investigate whether simple physics-informed surrogate
+models are capable of partially reconstructing the effects of neglected
+spatial dynamics despite operating in a drastically simplified
+non-spatial representation. We focus on radiotherapy-driven tumor
+dynamics (e.g. \cite{Balcerak2025GliODIL}, \cite{sun2025physicsinformed}, \cite{Sujitha2023RadiotherapyBrainTumor}) in scenarios where the irradiation field only partially
+overlaps with the tumor volume or becomes spatially shifted with respect
+to the evolving tumor geometry during repeated treatment fractions. Such
+situations naturally generate unresolved effects including asymmetric
+survival regions, delayed recolonization of irradiated areas, outward
+invasive expansion, and spatially heterogeneous regrowth dynamics.
+The presented framework is intended as a controlled computational
+testbed for investigating whether physics-informed surrogate models can
+reconstruct unresolved spatial effects eliminated during PDE-to-ODE
+reduction. From the Scientific Machine Learning perspective, the
+PI-NODE architecture may also be interpreted as a reduced-order
+UDE-based \cite{rackauckas2019diffeqflux} closure model designed to compensate for unresolved spatial
+dynamics introduced by aggressive PDE-to-ODE reduction including spatially heterogeneous radiation damage accumulation,
+asymmetric post-treatment survival patterns, and delayed
+recolonization fronts.
+
+The experiments presented should therefore be interpreted primarily as a
+methodological investigation of closure-aware surrogate modeling for
+future interactive therapy-planning systems and Language–Driven Therapy
+Design frameworks requiring computationally efficient predictive models.
+\section{Models of Cancer Dynamics Under Therapy}
+\subsection{Spatial Model}
+There is a plethora of cancer models based on various modeling paradigms
+(see e.g., \cite{cristini2010multiscale}, \cite{Sekyere2025VascularTumor}, \cite{wcislo20093}). Most of them concern only the
+phase of tumor growth. Much less consider various anti-cancer therapies
+(see e.g. \cite{Sujitha2023RadiotherapyBrainTumor}, \cite{dzwinel2021supermodeling}). Let us assume that we have an array of such
+models ordered in decreasing complexity starting from the reality R: R
+\(\rightarrow\)$M_{\infty} \to \ldots \to M_i \to M_{i-1} \to \ldots \to M_1 \to M_0$.
+We assume that the number of parameters will decrease from the most
+complicated to the simplest model. Let us assume that $M_{\infty}$
+is the most faithful metaphor of reality R, while possible differences
+come from various sources of uncertainty. In general, even in reality,
+assuming the same two initial setups, one can obtain (after some time)
+different outcomes resulting from the nonlinear amplification of small
+variations in the systems (chaotic behavior). Due to the measurement,
+numerical, and round-off errors the same situation may happen for
+computer simulations. So, here, before introducing the reduced formulation, we consider a more
+general radiotherapy-driven reaction-diffusion model $M_{2}$ in which tumor
+evolution is coupled with treatment response, oxygen-dependent
+radiosensitivity, and unresolved microenvironmental effects. In its
+compact form, such a model may be written as \cite{Sujitha2023RadiotherapyBrainTumor}:
+\begin{equation}
+\label{eq:pde_general}
+\begin{split}
+    \frac{\partial u(x,t)}{\partial t}
+&=
+\nabla \cdot \left( D(x)\nabla u \right)
++
+F_{b}(u,x,t;\theta_{b})
+-
+U(t)\,G_{R}(u,R(x,t),h(x,t);\theta_{R}) \\
+&+
+\mathcal{M}(u,x,t).
+\end{split}
+\end{equation}
+where \(u(x,t)\) denotes the local tumor cell density, \(D(x)\) is a
+possibly heterogeneous diffusion coefficient, \(F\) represents intrinsic
+tumor growth and tissue-limited proliferation, \(G_{R}\) describes
+radiotherapy-induced cell killing modulated by the delivered dose
+\(R(x,t)\)and local radiosensitivity factors \(h(x,t)\), while
+\(\mathcal{M}\) collects additional microenvironmental mechanisms such as
+hypoxia, vascular remodeling, delayed cell death, repair processes, and
+repopulation between treatment fractions. Additionally, \(U(t)\) defines
+the radiotherapy fractionation schedule, i.e. the sequence of
+irradiation events. A convenient representation is
+\begin{equation}
+\label{eq:therapy_schedule}
+U(t)
+=
+\sum_{k=1}^{N_f}
+\delta_{\tau}(t-t_k).
+\end{equation}
+where \(N_{f}\) is the total number of fractions, \(t_{k}\) denotes the
+time of the \(k\)-th irradiation, and \(\delta_{\tau}(t - t_{k})\) is a
+narrow temporal pulse representing dose delivery over a short time
+interval. A simplified instance of this general formulation is then obtained by
+assuming logistic tumor growth, constant diffusion, multiplicative
+radiotherapy-induced killing, and representing all unresolved effects by
+a residual term \cite{Sujitha2024ChemoRadiotherapy}:
+\begin{equation}
+\label{eq:pde_simplified}
+\frac{\partial u(x,t)}{\partial t}
+=
+D\nabla^{2}u
++
+\rho u\left(1-\frac{u}{K}\right)
+-
+\beta U(t)R(x)H(x)u
++
+\xi(u,x,t).
+\end{equation}
+where: \(\rho\) denotes the intrinsic tumor proliferation rate,
+\(K\) is the effective carrying capacity,
+\(\beta\) Radiosensitivity coefficient, the residual term \(\xi(u,x,t)\) represents unresolved biological
+mechanisms and modeling uncertainties.
+
+\subsection{ODE Model}
+
+In practice, 3D tumor structure can be observed using imaging techniques
+such as CT or MRI; however, these observations are limited to discrete
+snapshots separated by relatively large time intervals. Consequently,
+the full spatio-temporal field \(u(x,t)\) is not directly observable.
+Moreover, clinical measurements typically capture only the visible tumor
+volume, which may underestimate the true tumor burden due to limited
+resolution and the presence of diffuse or microscopic disease. In
+reduced models, this discrepancy can be partially compensated by
+introducing an effective tumor mass, for example by incorporating safety
+margins or scaling factors. So, instead, measurements typically
+correspond to macroscopic quantities. Therefore, we introduce an
+observable such as tumor mass as:
+\begin{equation}
+\label{eq:mass}
+y(t)
+=
+\int_{\Omega} u(x,t)\,dx
+\qquad \text{and} \qquad
+\int_{\Omega} \nabla^{2}u\,dx = 0
+\end{equation}
+assuming zero-flux BC. Combining Equation (\ref{eq:pde_simplified}) and  Equation (\ref{eq:mass}):
+\begin{equation}
+\dot y=
+\rho y
+-\frac{\rho}{K}\int_\Omega u^2dx
+-\beta\int_\Omega URHu\,dx
++\int_\Omega \xi\,dx .
+\end{equation}
+If we now wish to approximate it using a logistic ODE:
+\(ay - by^{2} = ay(1 - \frac{b}{a}y)\) in combination with radiotherapy,
+e.g.
+\begin{equation}
+\small
+\begin{aligned}
+\dot y
+&=
+\dot y = ay - by^2 - cU(t)\bar R_{\mathrm{eff}}(t)y
+\\
+\delta(t)
+&=
+-\frac{\rho}{K}
+\Bigl(\int_\Omega u^2dx-\alpha y^2\Bigr)
+-\beta
+\Bigl(
+\int_\Omega U(t)RHu\,dx
+-\bar R_{\mathrm{eff}}(t)y
+\Bigr)
++\int_\Omega \xi(u,x,t)\,dx .
+\end{aligned}
+\end{equation}
+where:
+\begin{itemize}
+    \item $R(x,t)$ local radiotherapy at PDE.
+
+    \item $\bar R_{\mathrm{eff}}(t) = \frac{\int_{\Omega}^{}{R(x,t)H(x)u(x,t)\text{\,}dx}}{\int_{\Omega}^{}{u(x,t)\text{\,}dx}}$ - state-dependent exact effective mean
+
+    \item the available macroscopic input used in ODE/NODE.
+    
+\end{itemize}
+
+This is a very powerful example, as it highlights three sources of
+error:
+\begin{enumerate}
+\item \emph{Spatial non-linearity}
+\begin{equation}
+\int_{\Omega} u^{2}\,dx
+\neq
+\alpha y^{2}
+\end{equation}
+\item \emph{Inconsistent response to radiotherapy}
+\begin{equation}
+\int_{\Omega} R(x,t)H(x)u\,dx
+\neq
+\bar{R}_{\mathrm{eff}}(t)\,y
+\end{equation}
+\item \emph{Missing physics / biology}
+\begin{equation}
+\int_{\Omega} \xi(u,x,t)\,dx
+\neq 0
+\end{equation}
+\end{enumerate}
+Let the ODE surrogate therefore take the ODE system form:
+
+\begin{equation}
+\label{eq:pinode_residual}
+\frac{dy}{dt}
+=
+f_{RT}\!\left(y,U(t);\theta\right)
++
+g_{\phi}\!\left(y,t,U(t)\right)
+\end{equation}
+\(y(t)\) - the system state (e.g., tumor mass, or an extended
+state in NODE),
+\(f_{RT}\) - the known mechanistic core (radiotherapy-driven dynamics),
+\(g_{\phi}\) - a learned correction term accounting for unresolved
+effects,
+\(U(t)\) - the control/input function, describing the applied therapy
+over time.
+
+In our case:
+\begin{equation}
+\label{eq:frt}
+f_{RT}(y,U(t);\theta)
+=
+\rho\,y(1-y)
+-
+\beta\,\overline{R}_{\mathrm{eff}}(t)\,U(t)\,y
+\end{equation}
+The $g_{\phi}$ -- learned correction, which depends on: the
+complete cell distribution, the complete dose distribution, the
+microenvironment, treatment history. Therefore, it compensates for:
+(a) spatial heterogeneity of the dose,
+(b) hypoxia,
+(c) delayed cell death,
+(d) repopulation between fractions,
+and (e) other unmodelled processes.
+Thus, \(g_{\phi}\) accounts for unresolved effects, while the treatment
+itself is represented explicitly by the control function \(U(t)\).
+
+\section{Surrogate Models}
+
+The objective of this section is to investigate whether low-dimensional
+surrogate models can reproduce selected effects of complex spatial
+radiotherapy dynamics after PDE-to-ODE reduction and loss of spatial
+information.
+We compare three surrogate formulations of increasing complexity:
+(i) a mechanistic two-state ODE calibrated through data assimilation,
+(ii) a purely data-driven Neural ODE (NODE), and
+(iii) a physics-informed residual PI-NODE combining mechanistic
+radiotherapy dynamics with a learnable neural closure term.
+The comparison focuses on how these approaches capture unresolved
+effects associated with tumor--beam mismatch, incomplete irradiation
+overlap, and delayed post-treatment dynamics.
+
+To investigate robustness under observational uncertainty, additional
+training ensembles were generated by perturbing the sparse observations
+with Gaussian noise. Independent surrogate realizations were then
+trained for each noisy observation set, producing probabilistic bundles
+of trajectories and uncertainty bands for ODE, NODE, and PI-NODE models.
+
+\subsection{Data Assimilation to a Reduced Two-State ODE Model}
+
+As the first surrogate modeling strategy, we consider a reduced-order
+two-state ordinary differential equation (ODE) system describing the
+evolution of the normalized tumor mass together with an auxiliary latent
+radiation-damage variable. The purpose of this model is to provide a
+minimal mechanistic approximation of the spatial radiotherapy dynamics
+generated by the reference PDE system while preserving delayed treatment
+effects and multi-fraction memory.
+
+The reduced surrogate is formulated as:
+\begin{equation}
+\label{eq:ode_rt_2state}
+\dot y=\rho y(1-y/K_{\mathrm{eff}})-\gamma zy-\mu y,
+\quad
+\dot z=-z/\tau+U(t).
+\end{equation}
+where: \(z(t)\) is a latent accumulated radiation-damage variable, $\gamma$ is radiation-induced decay coefficient
+\(\mu\) represents background decay,
+and \(\tau\) is the characteristic damage relaxation time.
+
+Unlike the earlier single-state formulation, the introduction of the
+latent variable \(z(t)\) enables the surrogate to reproduce delayed
+responses and cumulative effects associated with repeated irradiation
+fractions. In particular, the second equation acts as a low-dimensional
+memory mechanism integrating previous dose delivery.
+The surrogate parameters
+$\theta =
+(\rho,\gamma,K,\mu,\tau)$
+are estimated through data assimilation \cite{heaney2024dataassimilation} using synthetic observations
+generated by the spatial PDE reference model. However, the reduced surrogate parameters should not be interpreted as physically identifiable quantities, but rather as effective closure-compensating coefficients. This affects all surrogates described in this paper. The assimilation objective is formulated as a nonlinear least-squares
+optimization problem:
+\begin{equation}
+\label{eq:ode_training}
+\theta^{*}
+=
+\arg\min_{\theta}
+\mathcal{L}_{ODE}(\theta),
+\qquad
+\mathcal{L}_{ODE}(\theta)
+=
+\sum_{i=1}^{N_t}
+\left(
+y_{ODE}(t_i;\theta)
+-
+y_{PDE}(t_i)
+\right)^2.
+\end{equation}
+Here, \(y_{PDE}(t_i)\) denotes the tumor mass extracted from the spatial
+PDE reference simulation, whereas
+\(y_{ODE}(t_i;\theta)\) is the corresponding reduced-order surrogate
+prediction.
+The optimization was performed using a hybrid strategy combining global
+differential-evolution initialization followed by bounded local
+gradient-based refinement. Assimilation was carried out only on sparse
+synthetic observations sampled within a restricted temporal observation
+window, while the remaining time interval was used for forecasting and
+generalization assessment.
+
+Due to the low dimensionality of the mechanistic surrogate, standard
+nonlinear least-squares assimilation was sufficient in the present
+study. For larger mechanistic systems with higher-dimensional parameter
+spaces, more advanced assimilation approaches such as adjoint-based,
+Bayesian, or ensemble methods may become necessary
+\cite{heaney2024dataassimilation}.
+\subsection{Classical Neural ODE (NODE) Surrogate}
+
+While reduced mechanistic ODE surrogates provide an interpretable
+approximation of the spatial tumor dynamics, their predictive capability
+remains limited by the loss of spatial information during PDE-to-ODE
+reduction. In particular, unresolved effects associated with
+tumor--beam geometry mismatch, asymmetric irradiation, delayed treatment
+response, and nonlocal spatial interactions cannot be represented
+explicitly within fixed low-dimensional mechanistic models.
+
+In the present work, the NODE surrogate \cite{chen2018neural}, \cite{rackauckas2020ude}, \cite{rubanova2019latent} is formulated as a two-state
+continuous-time dynamical system:
+\begin{equation}
+\label{eq:node}
+\dot y=f_{\psi}^{(y)}(y,z,t,U),
+\qquad
+\dot z=f_{\psi}^{(z)}(y,z,t,U).
+\end{equation}
+where:
+\(f_{\psi}=(f_{\psi}^{(y)},f_{\psi}^{(z)})\) denotes a neural network
+parameterized by trainable weights \(\psi\). The second latent state represents unresolved treatment-induced damage dynamics.
+The latent state $z(t)$ provides low-dimensional treatment memory and delayed-response dynamics.
+
+The neural network acts as a continuous-time nonlinear dynamical
+operator approximating the temporal evolution of the reduced latent
+state. In the present study, a fully connected feed-forward
+architecture was employed consisting of:
+\begin{itemize}
+\item
+an input layer containing $(y,z,t,U(t))$,
+\item
+two hidden layers with ReLU activation functions,
+\item
+a two-dimensional output representing the time derivatives $(dy/dt,dz/dt)$.
+\end{itemize}
+The final network layer was initialized close to zero in order to
+stabilize early-stage trajectory integration and avoid unrealistically
+large initial vector fields. Trajectory prediction was obtained through explicit time integration of
+the learned neural dynamical system using a fourth-order Runge--Kutta
+scheme. The NODE parameters were estimated by minimizing the trajectory mismatch
+with respect to the PDE-generated observations:
+\begin{equation}
+\label{eq:node_training}
+\psi^{*}
+=
+\arg\min_{\psi}
+\mathcal{L}_{NODE}(\psi),
+\qquad
+\mathcal{L}_{NODE}
+=
+\sum_{i=1}^{N_t}
+\left(
+y_{NODE}(t_i)
+-
+y_{PDE}(t_i)
+\right)^2.
+\end{equation}
+Only sparse observations from a restricted temporal assimilation window
+were used during training, whereas the remaining time interval served as
+an out-of-sample forecasting region for evaluating extrapolation
+capability.
+Although NODE surrogates offer substantially higher flexibility than
+fixed mechanistic reduced-order models, they do not explicitly preserve
+physical interpretability and may exhibit unstable extrapolation
+behavior outside the assimilation interval, particularly under sparse
+training conditions.
+
+\subsection{Physics-Informed Neural ODE (PI-NODE) Surrogate}
+
+To combine mechanistic interpretability with the flexibility of neural
+correction terms, we introduce a physics-informed residual Neural ODE
+(PI-NODE) surrogate. The proposed formulation augments the reduced
+two-state mechanistic radiotherapy model with a learnable neural
+closure term accounting for unresolved effects eliminated during the
+PDE-to-ODE reduction process.
+
+The PI-NODE surrogate augments the mechanistic reduced radiotherapy
+model with a learnable neural residual closure term:
+\begin{equation}
+\label{eq:pinode_weighted}
+\dot y
+=
+\omega f^{(y)}_{\mathrm{RT}}(y,z,U;\theta)
++
+s_r g_{\psi}(y,z,t,U),
+\qquad
+\dot z
+=
+f^{(z)}_{\mathrm{RT}}(z,U;\theta),
+\end{equation}
+where
+\(f^{(y)}_{\mathrm{RT}}\)
+and
+\(f^{(z)}_{\mathrm{RT}}\)
+denote the mechanistic tumor-growth and latent damage dynamics defined
+by Eq.~\eqref{eq:ode_rt_2state}.
+Here:
+\(\theta=(\rho,\gamma,K,\mu,\tau)\)
+contains the mechanistic model parameters,
+\(g_{\psi}\) denotes the neural residual closure term with trainable
+parameters \(\psi\),
+\(\omega\) controls the contribution of the mechanistic tumor dynamics,
+and \(s_r\) scales the neural residual correction.
+
+The residual neural component can be interpreted as a learned
+reduced-order UDE closure model compensating for unresolved spatial
+dynamics eliminated during PDE-to-ODE reduction, including:
+incomplete overlap between tumor and irradiation regions,
+delayed recolonization of irradiated areas,
+outward expansion of untreated tumor regions,
+nonlocal spatial effects,
+and unresolved geometric heterogeneity.
+
+In the present implementation, the neural residual correction is applied
+only to the tumor evolution equation, whereas the latent damage
+dynamics remain fully mechanistic.
+Unlike the pure NODE formulation, the PI-NODE framework preserves
+physically interpretable mechanistic parameters while allowing
+unresolved dynamics to be reconstructed through residual learning.
+
+The residual network employs the same feed-forward architecture as the
+pure NODE model:
+input variables $(y,z,t,U(t))$,
+two hidden fully connected layers with ReLU activation functions,
+and a residual output correction applied to the tumor evolution
+equation.
+To stabilize learning and prevent the residual correction from
+overwhelming the mechanistic dynamics, the residual output was
+initialized close to zero and additional \(L_2\) regularization was
+imposed on the neural vector field.
+\begin{equation}
+\label{eq:pinode_training}
+\begin{aligned}
+(\theta^{*},\psi^{*})
+&=
+\arg\min_{\theta,\psi}
+\mathcal{L}_{\mathrm{PINODE}},
+\\
+\mathcal{L}_{\mathrm{PINODE}}
+&=
+\sum_{i=1}^{N_t}
+\left(
+y_{\mathrm{PINODE}}(t_i)
+-
+y_{PDE}(t_i)
+\right)^2
++
+\lambda\,\mathcal{R}(g_{\psi}).
+\end{aligned}
+\end{equation}
+where $\mathcal{R}(g_{\psi})
+=\|g_{\psi}\|_2^2$
+denotes residual regularization preventing the neural correction from
+dominating the mechanistic component.
+Training was performed using an alternating optimization strategy. In
+particular, residual-network parameters and mechanistic parameters were
+updated in separate training phases followed by a final joint
+fine-tuning stage. Mechanistic parameters were initialized directly from
+the reduced PDE-derived physical model rather than from the assimilated
+ODE fit.
+
+The implementation strategy was inspired by the Scientific Machine
+Learning (SciML) ecosystem and related Universal Differential Equation
+(UDE) \cite{rackauckas2019diffeqflux}, \cite{rackauckas2020ude} formulations combining mechanistic differential equations with
+trainable neural closure operators.
+\section{Numerical Experiments}
+The purpose of the numerical experiments is not to reproduce a
+clinically realistic radiotherapy protocol, but rather to construct a
+controlled computational environment for analyzing the behavior of
+reduced surrogate models under progressive loss of spatial information.
+
+In particular, the experiments are designed to investigate whether
+physics-informed surrogate models are capable of partially
+reconstructing unresolved spatial effects caused by geometric mismatch
+between tumor and irradiation regions. To this end, we consider a
+simplified reaction--diffusion radiotherapy model as the ground-truth
+dynamical system and compare its reduced-order surrogate representations
+under several beam--tumor alignment scenarios.
+
+\subsection{Ground Truth Spatial Model}
+
+The spatial model of ground truth is described by Eq.~\eqref{eq:pde_simplified} without the
+uncertainty factor \(\xi(u,x,t).\) The model combines logistic tumor
+growth, spatial invasion, and cell death induced by localized radiation therapy
+. The spatial beam profile \(R(x)\)remains fixed during
+individual experiments, while different relative beam--tumor
+configurations are investigated. The numerical simulations were
+performed on a two-dimensional Cartesian domain using a
+finite-difference discretization of the diffusion operator combined with
+explicit time integration.
+
+The computational grid and time step were
+selected to ensure stable evolution of the reference trajectories during
+the considered time horizon. The parameters used in the experiments are
+summarized in Table~\ref{tab:pde_parameters}. The parameters were selected to produce qualitatively realistic
+radiotherapy dynamics and sufficiently rich spatial effects for
+surrogate-model evaluation rather than to reproduce a specific clinical
+scenario. All quantities are dimensionless or weakly normalized, since
+the primary objective of this work is methodological rather than
+patient-specific modeling.
+
+\begin{table}[H]
+\caption{Ground-truth PDE model parameters used in the radiotherapy simulations.}
+\label{tab:pde_parameters}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.05}
+
+\begin{tabular}{p{1.6cm} p{5.8cm} p{1.8cm}}
+\hline
+\textbf{Parameter} & \textbf{Description} & \textbf{Value} \\
+\hline
+
+$D$ & Tumor diffusion coefficient & 0.002 \\
+
+$\rho$ & Tumor proliferation rate & 0.052 \\
+
+$K$ & Carrying capacity & 1.0 \\
+
+$\beta$ & Radiosensitivity coefficient & 1.25 \\
+
+$\alpha_{0}$ & Radiation damage amplitude & 3.0 \\
+
+$R_{0}$ & Damage decay scale & 0.2 \\
+
+$\gamma$ & Radiation-induced decay coefficient & 3.0 \\
+
+$\nu$ & Nonlinear saturation parameter & 1.0 \\
+
+$R_t$ & Tumor radius & 0.55 \\
+
+$R_b$ & Beam radius (full / partial overlap) & 0.55 / 0.25 \\
+
+$\delta$ & Beam offset displacement & $(1/3$--$2/3)R_t$ \\
+
+$t_1,\; t_2$ & Irradiation times & 15,\;45 \\
+
+$\Delta t$ & Time step & 0.1 \\
+
+$T$ & Simulation horizon & 80 \\
+\hline
+\end{tabular}
+\end{table}
+ 
+
+\subsection{Initial Beam--Tumor Configurations}
+
+To investigate the influence of unresolved spatial dynamics on surrogate
+prediction, four beam--tumor alignment scenarios were considered:
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  \textbf{Full covered beam} - the irradiation field is centered
+  on the tumor region and contains the whole tumor mass,
+\item
+  \textbf{Narrow centered} - the irradiation field is centered
+  on the tumor region and does not contain the whole tumor mass,
+\item
+  \textbf{Slight shift} - the beam center is displaced by $1/3\,R_{tumor}$.
+\item
+  \textbf{Strong shift} - the beam center is displaced by $2/3\,R_{tumor}$.
+\end{enumerate}
+The initial conditions and beam geometries are illustrated in Fig.~\ref{fig:pde_dynamics}.
+Cyan contours denote the irradiation field profile. In the aligned
+configuration, radiotherapy efficiently suppresses tumor growth after
+each treatment cycle. In contrast, increasing geometric mismatch leads
+to the formation of untreated proliferative regions responsible for
+asymmetric regrowth and outward expansion. These unresolved spatial
+effects are intentionally introduced in order to analyze whether reduced
+surrogate models can reconstruct part of the missing spatial dynamics
+despite operating on low-dimensional aggregated tumor representations.
+
+\begin{figure}[t]\centering\includegraphics[width=1.0\textwidth]{figures/image1.png}\caption{Ground-truth PDE dynamics for the four beam-tumor configurations. Cyan contours denote the irradiation beam profile.}\label{fig:pde_dynamics}\end{figure}
+
+\subsection{Temporal Radiotherapy Schedule and MLP Parameters}
+
+The temporal treatment schedule used in all experiments is represented
+by $U(t)$
+In the present study, a deliberately simplified treatment schedule was used, consisting of two irradiation events separated by a fixed time interval. The purpose of this choice is not to optimize a therapeutic protocol, but rather to generate sufficiently rich transient dynamics allowing surrogate models to experience: temporary tumor suppression, delayed regrowth, recolonization effects and geometry-dependent divergence between trajectories.
+
+Consequently, the selected \(U(t)\) should be interpreted as a controlled excitation signal for evaluating surrogate-modeling capabilities rather than as a clinically meaningful radiotherapy protocol. 
+The assimilation interval was chosen to include both irradiation events and the initial post-treatment response phase (see Table~\ref{tab:assimilation}), whereas the testing interval was used to evaluate long-term predictive capability and extrapolation stability after assimilation. 
+To mimic sparse observational settings typical for practical therapy monitoring, only 20 temporally distributed training samples were used in each experiment, with additional Gaussian perturbations introduced for ensemble-based robustness analysis.
+
+\subsection{Experimental Results}
+
+In this section, we present the surrogate-model results obtained for the
+four beam--tumor configurations introduced in Section 4.2. The objective of these experiments is to analyze how increasing geometric mismatch and unresolved spatial dynamics influence the predictive robustness of reduced-order surrogate models under noisy assimilation conditions. For each beam--tumor configuration, we compare the reference PDE trajectory with ensemble predictions generated by the reduced ODE surrogate, the purely data-driven NODE model, and the proposed physics-informed PI-NODE formulation using 20 Gaussian-perturbed training realizations. Particular attention is devoted to the ability of the surrogate models to maintain stable long-term extrapolation and to reconstruct delayed regrowth and asymmetric post-treatment dynamics despite the elimination of explicit spatial information during PDE-to-ODE reduction.
+\begin{figure}[t]\centering\includegraphics[width=1.0\textwidth]{figures/image2.png}\caption{Ensemble uncertainty bands obtained for the four investigated beam--tumor configurations, comparing ODE, NODE, and PI-NODE surrogate predictions against the PDE reference trajectory. Training samples shown are noise-free.}\label{fig:rim_results}\end{figure}
+
+\begin{table}[H]
+\caption{Assimilation and forecasting settings used in the surrogate-model experiments.}
+\label{tab:assimilation}
+\centering
+\small
+\begin{tabular}{lll}
+\toprule
+Quantity & Description & Value \\
+\midrule
+
+
+$[T_{\mathrm{start}},T_{\mathrm{end}}]$
+& Sparse assimilation window
+& $[15,35]$ \\
+
+$N_{\mathrm{fit}}$
+& Number of sparse assimilation observations
+& 20 \\
+
+
+$\epsilon_i$
+& Gaussian perturbation
+& $\mathcal{N}\!\left(0,\,(0.02\,y_i)^2\right)$ \\
+
+$\Delta t$
+& Temporal integration step
+& 0.1 \\
+
+
+$(35,80]$
+& Forecasting / extrapolation interval
+& $(35,80]$ \\
+
+$t_1,t_2$
+& Irradiation events
+& 15,\;45 \\
+
+$N_{\mathrm{ensemble}}$
+& Number of noisy ensemble realizations
+& 50 \\
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+In Table~\ref{tab:nn_parameters} we present the metaparameters of the NODE and PI-NODE neural
+network architectures. Fig.~\ref{fig:rim_results}  summarizes the behavior of the considered
+surrogate formulations across the four investigated irradiation scenarios.
+For all configurations, the reduced ODE, NODE, and PI-NODE surrogates
+reproduce the available training observations almost perfectly within the
+assimilation interval, yielding very small calibration errors even under
+Gaussian-perturbed training samples.
+
+Substantial differences emerge, however, in the prediction interval outside the assimilation window. The classical ODE surrogate typically underestimates delayed post-treatment regrowth because unresolved spatial effects are absorbed into distorted effective parameters. The purely data-driven NODE model achieves very accurate fitting during assimilation but often exhibits unstable extrapolation and increasing long-term drift after the second irradiation event, particularly for geometrically mismatched cases.
+
+\begin{table}[H]
+\caption{Neural surrogate architecture and training parameters used for NODE and PI-NODE models.}
+\label{tab:nn_parameters}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.03}
+
+\begin{tabular}{p{2.5cm} p{5.6cm} p{2.4cm}}
+\hline
+\textbf{Parameter} & \textbf{Description} & \textbf{Value} \\
+\hline
+
+Input variables & NODE/PI-NODE inputs & $(y,z,t,U(t))$ \\
+
+Output & Predicted latent-state derivatives &
+$\left(\frac{dy}{dt},\frac{dz}{dt}\right)$ \\
+
+Latent dimension & Number of surrogate state variables & 2 \\
+
+Hidden layers & Fully connected hidden layers & 2 \\
+
+Hidden units & Neurons per hidden layer & 32 \\
+
+Activation & Nonlinear activation function & ReLU \\
+
+Residual init. & Final-layer initialization & Near-zero \\
+
+Optimizer & Training optimizer & Adam \\
+
+Learning rates & NODE / PI-NODE learning rates &
+$10^{-3}$ / $2\times10^{-4}$ \\
+
+NODE epochs & Pure NODE optimization epochs & 250 \\
+
+PI-NODE epochs & Physics / residual / joint epochs &
+80 / 180 / 90 \\
+
+Batch strategy & Training mode & Full trajectory \\
+
+Loss & Assimilation objective & MSE \\
+
+Residual reg. & PI-NODE residual penalty &
+$L_2$ regularization \\
+
+ODE solver & Trajectory integrator & RK4 \\
+
+Gradients & Differentiation strategy & Automatic diff. \\
+
+PI-NODE mech. & Optimized physical coefficients &
+$(\rho,\gamma,K_{\mathrm{eff}},\mu,\tau)$ \\
+
+PI-NODE resid. & Neural closure weights & $\psi$ \\
+
+Training strategy & PI-NODE optimization schedule &
+Alternating \\
+
+Ensemble training & Independent noisy realizations &
+50 runs \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\caption{Surrogate accuracy relative to the PDE solution}
+\label{tab:results}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{2pt}
+\renewcommand{\arraystretch}{0.9}
+
+\begin{tabular}{lcccc}
+\hline
+\textbf{Case} & \textbf{Model} & \textbf{Train} & \textbf{Test MSE} & \textbf{$e_{80}$} \\
+\hline
+
+Full
+& ODE & 1.0\% & 0.035 & -10\% \\
+& NODE & 0.3\% & 0.065 & -17\% \\
+& \textbf{PI-NODE} & \textbf{0.2\%} & \textbf{0.015} & \textbf{-1\%} \\
+\hline
+
+Narrow
+& ODE & 1.5\% & 0.100 & -22\% \\
+& NODE & 0.3\% & 0.180 & -40\% \\
+& \textbf{PI-NODE} & \textbf{0.3\%} & \textbf{0.035} & \textbf{-10\%} \\
+\hline
+
+Shift
+& ODE & 1.2\% & 0.065 & -16\% \\
+& NODE & 0.4\% & 0.120 & -26\% \\
+& \textbf{PI-NODE} & \textbf{0.4\%} & \textbf{0.025} & \textbf{-2\%} \\
+\hline
+
+Strong
+& ODE & 2.0\% & 0.120 & -21\% \\
+& NODE & 0.5\% & 0.200 & -36\% \\
+& \textbf{PI-NODE} & \textbf{0.5\%} & \textbf{0.040} & \textbf{-3\%} \\
+\hline
+\end{tabular}
+\end{table}
+
+
+In contrast, the proposed PI-NODE surrogate remains significantly more stable across all investigated configurations. By combining mechanistic radiotherapy dynamics with a learnable residual closure term, the model partially reconstructs unresolved spatial effects eliminated during the PDE-to-ODE reduction process, resulting in more accurate long-term prediction trajectories and substantially narrower uncertainty bands.
+
+The ablation study shown in Fig.~\ref{fig:uncertainty} demonstrates that the predictive performance of the PI-NODE surrogate strongly depends on the balance between the mechanistic component and the learnable residual correction. 
+Moderate residual flexibility produces the most stable long-term extrapolation, whereas excessively strong mechanistic weighting suppresses adaptive correction mechanisms and leads to systematic prediction bias after the second irradiation event. 
+The aggregated RMSE values confirm that overly restrictive physics regularization degrades generalization across heterogeneous beam--tumor geometries, despite maintaining accurate trajectory fitting within the assimilation interval.
+
+The quantitative comparison presented in Table~\ref{tab:results} confirms the improved long-term robustness of the PI-NODE formulation. Although all surrogate models reproduce the assimilation data with very small training errors, their extrapolation behavior differs substantially after the second irradiation event. The reduced ODE and purely data-driven NODE surrogates exhibit progressively increasing prediction drift as the beam--tumor mismatch becomes stronger, whereas the PI-NODE surrogate consistently maintains lower prediction MSE and smaller final-time deviations across all investigated configurations.
+\begin{figure}[t]
+\centering
+\includegraphics[width=1.0\textwidth]{figures/uncertainty.jpg}
+\caption{(PI-NODE ensemble predictions for different physics--residual balance settings in the \texttt{narrow\_centered} configuration. 
+(b) Median relative prediction RMSE aggregated over all completed ensemble runs and all beam--tumor configurations.}
+\label{fig:uncertainty}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.9\textwidth]{figures/image6.png}
+\caption{Computational costs for PDE simulations and the surrogate models.}
+\label{fig:cost}
+\vspace{0.8\baselineskip}
+\end{figure}
+
+Figure~\ref{fig:cost} compares the illustrative computational costs of
+the PDE reference simulations and the reduced surrogate models during
+both calibration and forward prediction. While the PDE simulations are
+computationally expensive due to repeated numerical solution of the
+spatial reaction--diffusion equations, all surrogate formulations enable
+extremely fast predictions after calibration.
+The reduced ODE surrogate exhibits the lowest calibration cost because
+only a few mechanistic parameters are assimilated. The NODE and
+PI-NODE formulations require longer optimization due to neural-network
+training and gradient-based optimization. However, surrogate training is performed only once, whereas the trained surrogate can subsequently generate thousands of fast predictions. So, the
+surrogates remain computationally inexpensive during inference compared
+to the PDE simulations. All neural surrogate models were implemented in PyTorch and trained using CUDA acceleration on a workstation equipped with an 11th Gen Intel\textsuperscript{\textregistered} Core\texttrademark~i5-11500H CPU (2.90\,GHz) and an NVIDIA T1200 GPU.
+
+\section{Conclusions}
+
+In this work, we investigated whether physics-informed machine learning
+can compensate for the loss of spatial information introduced during
+aggressive reduction of radiotherapy PDE models to low-dimensional ODE
+surrogates.
+
+The experiments showed that classical reduced ODE models absorb
+unresolved spatial effects into distorted effective parameters, leading
+to degraded long-term prediction accuracy. Purely data-driven NODE
+models improved trajectory fitting during assimilation but exhibited
+unstable extrapolation outside the training interval.
+In contrast, the proposed PI-NODE framework combining mechanistic
+radiotherapy dynamics with a learnable residual closure term achieved
+substantially improved predictive stability across all investigated
+beam--tumor configurations. From the Scientific Machine Learning
+perspective, the resulting formulation may be interpreted as a
+reduced-order UDE-based closure model in which the residual neural
+component partially compensates for unresolved spatial damage dynamics
+eliminated during PDE-to-ODE reduction.
+An additional important result concerns computational efficiency. All
+surrogate models reduced prediction costs by several orders of magnitude
+compared to the full PDE simulations, making such approaches promising
+for future interactive therapy-planning and AI-assisted treatment-design
+frameworks.
+
+The present study remains intentionally simplified and does not aim at
+patient-specific clinical prediction. The spatial PDE model is synthetic
+and low-dimensional, and the considered treatment schedules are
+deliberately reduced to controlled benchmark scenarios. Consequently,
+the results should be interpreted primarily as a proof-of-concept study
+for closure-aware surrogate modeling.
+Future work will focus on more realistic multiscale tumor models
+(e.g., similar to \cite{Klusek2019TumorGPU}), uncertainty-aware
+surrogate dynamics, explicit latent damage modeling, and integration
+with clinical knowledge systems and LLM-driven therapy-design
+environments.
+
+\subsubsection*{Acknowledgements}
+This work was supported by the National Science Centre (NCN), Poland, under grant OPUS-29, DEC-2025/57/B/ST6/04377, and by the PLGrid Cyfronet grant PLG/2025/018971. Generative AI tools were used solely for language editing and LaTeX formatting assistance. All scientific content and conclusions remain the responsibility of the authors.
+\bibliographystyle{splncs04}
+\bibliography{refs}
+\end{document}
