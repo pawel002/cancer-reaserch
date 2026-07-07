@@ -57,8 +57,16 @@ def integrate(t: np.ndarray, U: np.ndarray, y0: float, rho: float, gamma: float,
 
 
 def fit(t_train: np.ndarray, y_train: np.ndarray, U_train: np.ndarray,
-        seed: int = 123) -> Dict[str, float]:
-    """Assimilate theta via differential evolution + Powell (log-parameterised)."""
+        seed: int = 123, de_maxiter: int = 80,
+        powell_maxiter: int = 2500) -> Dict[str, float]:
+    """Assimilate theta via differential evolution + Powell (log-parameterised).
+
+    ``powell_maxiter`` caps the local-refinement iterations.  When the reduced
+    model cannot fit the data (e.g. a logistic ODE against cubic invasion
+    growth) Powell never satisfies its tolerances and otherwise runs to the full
+    2500 iterations, dominating wall-clock; capping it is a pure speed knob that
+    does not change the converged solution when the model *can* fit.
+    """
 
     def unpack(q):
         # Powell is unbounded; clamp the log-parameters to keep exp() finite.
@@ -79,9 +87,9 @@ def fit(t_train: np.ndarray, y_train: np.ndarray, U_train: np.ndarray,
     ]
 
     de = differential_evolution(loss, bounds=bounds, seed=seed, polish=False,
-                                maxiter=80, popsize=8, tol=1e-7, workers=1)
+                                maxiter=de_maxiter, popsize=8, tol=1e-7, workers=1)
     res = minimize(loss, de.x, method="Powell",
-                   options={"maxiter": 2500, "xtol": 1e-8, "ftol": 1e-10})
+                   options={"maxiter": powell_maxiter, "xtol": 1e-8, "ftol": 1e-10})
     rho, gamma, Keff, mu, tau = unpack(res.x)
     return {"rho": rho, "gamma": gamma, "Keff": Keff, "mu": mu, "tau": tau,
             "train_loss": float(res.fun), "success": bool(res.success)}
