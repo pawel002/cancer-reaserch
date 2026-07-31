@@ -1,164 +1,114 @@
-# Real-patient bridge: GliODIL → tumour-mass-vs-time surrogate
+# Real-patient ground truth (`cancer_sim.realdata`)
 
-This package hooks the **real glioma dataset** released with GliODIL
+Turns the released GliODIL glioma dataset
 ([Balcerak et al., *Nat. Commun.* 16, 5982, 2025](https://doi.org/10.1038/s41467-025-60366-4))
-into the ODE / NODE / PI-NODE radiotherapy-response surrogates in this repo.
-
-## Why a bridge is needed (the modality gap)
-
-The two codebases sit at different altitudes, so the real data cannot be fed to
-the surrogate as-is:
-
-| | This repo's surrogate | GliODIL | Real GliODIL dataset |
-|---|---|---|---|
-| Object | 0-D scalar **mass vs time** | 3-D spatial PDE inverse problem | 3-D MRI/PET volumes |
-| Input schema | `time, normalized_mass, U_t, W_eff_damage` (~801 pts) | 1 MRI/PET snapshot | seg + WM + GM (+PET) |
-| Time | dense trajectory, 2 dose pulses | internal growth only | **2 static timepoints** (pre-op, follow-up) |
-| Radiotherapy | explicit dose schedule | **none** (static planning only) | none (just imaging) |
-
-So "running the surrogate on real data" requires converting *static 3-D spatial
-snapshots* into a *temporal mass-vs-time RT-response curve*. That conversion is
-what this package does.
-
-## The faithful pipeline
+into the tumour-mass-versus-time trajectories the reduced surrogates consume,
+together with the spatial fields the figures are drawn from.
 
 ```
-real patient (MRI/PET)
-   │   GliODIL inference  (GPU; run_GliODIL.sh)
-   ▼
-inferred growth params (Dw, rho, Dw_ratio, focal seed) + WM/GM anatomy
-   │   fk3d.simulate    — 3-D Fisher-Kolmogorov forward sim WITH a grafted
-   ▼                      radiotherapy damage field, integrated spatially
-normalized_mass(t), U_t(t), W_eff(t)
-   │   to_surrogate.write_dataset + build_noisy_ensemble
-   ▼
-datasets/<name>_{full,train,test}.csv  +  noisy_observations/<name>/
-   │   run_ensemble.py --cases <name>   (unchanged)
-   ▼
-ODE / NODE / PI-NODE trained & forecast on a real-anatomy patient
+real patient (MRI)                     patient.load_geometry
+  t1_wm / t1_gm / t1_csf   ─────────▶  anatomy (WM, GM, brain mask)
+  segm  (pre-op BraTS)     ─────────▶  tumour core + FLAIR masks
+                                       initial cell density u(x,0)
+                                       invasiveness  L = sqrt(D/f)
+  segm_rec (follow-up)     ─────────▶  recurrence mask (held out)
+
+                                       patient.beam_field
+                                  ───▶ conformal PTV per beam configuration
+
+                                       cohort.calibrate_growth   (1 GPU sim)
+                                  ───▶ (Dw, f) fixed to a per-patient burden
+
+                                       fk_rt_gpu.simulate        (5 GPU sims)
+                                  ───▶ mass(t), U(t), W_eff(t), cross-sections
 ```
 
-**Why the 3-D PDE (not the reduced ODE) makes the ground truth.** The surrogates
-exist to bridge the gap between a *spatial* tumour and its *reduced* 0-D model —
-that discrepancy is exactly what the PI-NODE residual learns. If we generated the
-mass curve with the 2-state ODE itself, the surrogate would trivially fit its own
-generator and the experiment would be meaningless. So the bridge keeps a genuine
-3-D anisotropic reaction–diffusion PDE (GliODIL's own kernel) as the truth and
-reduces it to a mass curve, preserving the paper's premise on real anatomy.
+Modules: `patient.py` (geometry, initial condition, beams), `fk_rt_gpu.py` (the
+GPU forward model and its NumPy reference), `cohort.py` (screening, growth
+calibration, per-patient driver). The older `fk3d.py` / `fk3d_gpu.py` /
+`gliodil_io.py` / `to_surrogate.py` are the previous generic-seed bridge, kept
+for reference.
 
-**The radiotherapy graft.** The reduced model's RT physics
+## What is measured versus what is assumed
+
+| quantity | source | real? |
+| --- | --- | --- |
+| brain anatomy, WM/GM anisotropy | patient tissue maps | measured |
+| tumour location, size, shape | patient `segm` | measured |
+| initial cell density `u(x,0)` | two-threshold reconstruction of `segm` | derived from measurement |
+| invasiveness `L = sqrt(D/f)` | the patient's own edema-rim thickness | derived from measurement |
+| irradiation field | conformal PTV grown from the real tumour mask | clinical practice, not this patient's plan |
+| absolute growth speed `v = 2 sqrt(D f)` | drawn per patient, deterministic | **assumed** — unidentifiable from one timepoint |
+| radiosensitivity `gamma`, hypoxia `h` | drawn per patient, deterministic | **assumed** — no dose-response data in the dataset |
+
+Only the last two rows are assumptions, and both are *hidden from every
+surrogate*: they are exactly what the assimilation step has to recover. The
+released dataset has two static timepoints and no dose-over-time signal, so a
+dense response curve cannot be measured; it has to be simulated. What the
+benchmark therefore establishes is a comparison of **reduced-model forms on
+patient-specific geometry**, not a patient-calibrated clinical prediction.
+
+## Initial cell density
+
+The reconstruction reproduces *both* of the patient's measured contours rather
+than fitting a generic blob: `u = 0.50` on the enhancing (T1Gd) surface and
+`u = 0.25` on the FLAIR surface, using GliODIL's own density↔label convention
+(`synthetic_generator.py:63`). Between the two surfaces the density is
+log-linear in the *local* rim coordinate, so a tumour with a thin rim on one
+side and a thick rim on the other is honoured. Measured agreement with the
+segmentations is exact to the resampling tolerance: median Dice 1.000 at both
+iso-levels, worst case 0.980.
+
+## Growth calibration
+
+The Fisher–Kolmogorov equation is exactly invariant under
+`(D, f, t) → (cD, cf, t/c)`. One reference simulation per patient therefore
+gives the whole one-parameter family, and the scale `c` is chosen so the
+*untreated* tumour reaches a per-patient target burden at the horizon. The shape
+parameter `L = sqrt(D/f)` stays imaging-derived, so infiltrative and nodular
+tumours remain genuinely different; only the clock is normalised.
+
+## Radiotherapy graft
+
+GliODIL infers growth; it models no radiotherapy (grepping its source for
+"radiation", "dose" or "fraction" returns nothing). The dose response here is
+the spatial analogue of the paper's reduced two-state model, added to GliODIL's
+kernel:
 
 ```
-dy/dt = rho·y(1-y/K) - gamma·z·y - mu·y ,   dz/dt = -z/tau + U(t)
+dA/dt = div(D grad A) + f A (1 - A) - gamma (1 - h A) Z A
+dZ/dt = -Z / tau + U(t) beam(x)
 ```
 
-is lifted to a spatial analogue: a tumour field `A(x,t)` with a kill term
-`-gamma·Z·A`, and a damage field `Z(x,t)` driven by a spatial beam mask,
-`dZ/dt = -Z/tau + U(t)·beam(x)`. Spatial integral → `normalized_mass(t)`;
-`W_eff(t)` is the tumour-mass-weighted mean damage (0-D reduction of `Z`).
+The `(1 - h A)` factor makes dense tumour regions harder to kill — the
+microenvironment channel `M(u, x, t)` of the paper's general model
+(Eq. `pde_general`). It is the one deliberate addition, and it is what makes the
+reduced 0-D response genuinely under-determined; set `hypoxia = 0` to recover
+the plain graft.
 
-## Honest caveats
+The GPU solver is validated against a pure-NumPy float64 reference to machine
+precision by `experiments/validate_solver.py`: max relative difference 2.5e-16
+in the tumour mass and 3.6e-16 in the damage field with radiotherapy on, and
+1.9e-16 with it off. The same script checks the time-rescaling identity the
+growth calibration relies on (agreement to 2.6e-05, limited by the output-grid
+interpolation, not the solver).
 
-- **RT response is synthetic.** The real dataset has no dose-over-time signal,
-  so the *growth* (geometry, WM/GM-anisotropic diffusion, proliferation rate) is
-  patient-real but the *radiotherapy response* is a physically-motivated graft.
-- **Two real timepoints only.** GliODIL infers growth from the pre-op snapshot;
-  the follow-up is for recurrence evaluation, not a dense response curve. The
-  dense trajectory the surrogate needs is produced by the forward sim, not
-  measured.
+## Beam configurations
 
-## Usage
+`narrow_centered` and `strong_shift` are tuned to deliver almost the same total
+dose to the tumour (cohort median coverage 0.42 versus 0.41) with completely
+different spatial patterns. A reduced 0-D surrogate sees an identical `U(t)` and
+a near-identical effective coverage for the two, so any difference in their
+outcome is by construction unresolvable without a closure term.
 
-### 0. (one-off) download the dataset — run this yourself
+## Reproduce
 
 ```bash
-# ~1.2 GB Git-LFS zip; public (MIT). Either:
-.venv/bin/python -m pip install -U "huggingface_hub[cli]"
-hf download m1balcerak/GliODIL data_GliODIL_essential.zip \
-    --repo-type dataset --local-dir ./real_data
-unzip ./real_data/data_GliODIL_essential.zip -d ./real_data/
-
-# …or with plain curl (no auth needed):
-curl -L -o data_GliODIL_essential.zip \
-  "https://huggingface.co/datasets/m1balcerak/GliODIL/resolve/main/data_GliODIL_essential.zip?download=true"
-unzip data_GliODIL_essential.zip -d ./real_data/
+PYTHONPATH=src python experiments/validate_solver.py            # GPU vs NumPy
+PYTHONPATH=src python experiments/gen_cohort.py --gpus 4,5,6,7
 ```
 
-### 1. CPU demo — verify the whole chain without GPU or download
-
-Fabricates a patient from the WM/GM atlas shipped in `GliODIL/.../precomputed/`:
-
-```bash
-.venv/bin/python experiments/build_real_dataset.py --demo --grid 96
-.venv/bin/python experiments/run_ensemble.py --cases gliodil_demo \
-    --out results/real_data/ensemble
-```
-
-### 2. Real dataset layout
-
-The downloaded zip extracts to `data_GliODIL_essential/data_NNN/` (152 patients),
-each with **240×240×155** NIfTI volumes:
-
-| file | role |
-|---|---|
-| `t1_wm.nii.gz`, `t1_gm.nii.gz`, `t1_csf.nii.gz` | tissue probability maps |
-| `segm.nii.gz` | pre-op tumour segmentation (BraTS labels) |
-| `segm_rec.nii.gz` | recurrence/follow-up segmentation |
-| `FET.nii.gz` | FET-PET (subset of patients) |
-
-`load_patient` reads `t1_wm`/`t1_gm` (skips macOS `._` forks), places the focal
-seed at the **pre-op tumour centroid** (`tumor_centroid`, from `segm`), and uses
-`coeffs.npy` for growth parameters if a GliODIL run produced one.
-
-### 3a. Local run, no GPU (real anatomy, sampled growth)
-
-GliODIL's parameter inference needs a GPU (>18 GB; its TensorFlow stack also does
-not support this repo's Python 3.14), so it cannot run here. But the bridge runs
-fully on CPU using the **real anatomy + real tumour location**, with growth
-parameters either fixed (`--Dw`/`--f`) or drawn per patient from GliODIL's
-published ranges (`--sample-params`) to emulate inter-patient heterogeneity:
-
-```bash
-# cohort of the first 5 patients, heterogeneous growth, ~2 min build on CPU
-.venv/bin/python experiments/build_real_dataset.py \
-    --patient-root real_data/data_GliODIL_essential --limit 5 --grid 80 --sample-params
-.venv/bin/python experiments/run_ensemble.py \
-    --cases gliodil_data_001 gliodil_data_013 gliodil_data_020 gliodil_data_030 gliodil_data_034 \
-    --out results/real_data/cohort
-```
-
-> Caveat: without GliODIL inference the **growth** is real-anatomy but
-> sampled/literature-range, not patient-inferred. With identical params the
-> reduced mass curves come out nearly identical across patients (they differ only
-> in anatomy+seed); `--sample-params` restores the variability a real cohort
-> study needs until the GPU step is available.
-
-### 3b. Full faithful run, with GPU
-
-```bash
-# (a) GliODIL inference -> inferred field + coeffs.npy in the patient dir
-./GliODIL/run_GliODIL.sh /path/to/data_GliODIL_essential/data_001
-
-# (b) bridge (coeffs.npy now drives patient-specific growth) + (c) surrogates
-.venv/bin/python experiments/build_real_dataset.py \
-    --patient-dir /path/to/data_GliODIL_essential/data_001 --grid 128
-.venv/bin/python experiments/run_ensemble.py --cases gliodil_data_001
-```
-
-> `nibabel` (`.venv/bin/python -m pip install nibabel`) is needed to read the
-> real `.nii.gz` volumes; the demo and `.npy` paths don't need it.
-
-## Tuning the regime (`FK3DConfig` in `fk3d.py`)
-
-- **Growth aggressiveness:** `f` (proliferation), `Dw` (diffusion), `Dw_ratio`.
-  These come from GliODIL per patient; raising them gives larger pre-dose growth
-  and steeper regrowth.
-- **RT response depth:** `gamma` (radiosensitivity), `dose_amplitude`,
-  `dose_duration`, `damage_decay_time` (tau), and the spatial beam
-  (`beam_center`, `beam_radius_frac`).
-- **Schedule / horizon:** `dose_times`, `T`, `dt_output`. Defaults reproduce the
-  surrogate config (T=80, doses at 15 & 45, assimilation window 15–35) so the
-  emitted patient is a drop-in case.
-- **Speed:** `--grid` downsamples anatomy (96³ ≈ 10 s/patient on CPU,
-  192³ ≈ 100 s). `substeps` controls FK stability (auto-checked).
-```
+117 of the 152 released patients pass screening (`cohort.screen_cohort`); the
+rest are rejected for a degenerate tumour segmentation or an unusable tissue
+map. Generating the whole cohort — 6 forward simulations each at 160³ — takes
+about 20 GPU-minutes.
