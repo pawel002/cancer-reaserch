@@ -1,0 +1,320 @@
+% ==========================================================================
+% Numerical experiments: 2-D phantom
+% ==========================================================================
+
+\section{Numerical Experiments: Controlled Two-Dimensional Phantom}
+\label{sec:experiments}
+The purpose of the numerical experiments is not to reproduce a
+clinically realistic radiotherapy protocol, but rather to construct a
+controlled computational environment for analyzing the behavior of
+reduced surrogate models under progressive loss of spatial information.
+
+In particular, the experiments are designed to investigate whether
+physics-informed surrogate models are capable of partially
+reconstructing unresolved spatial effects caused by geometric mismatch
+between tumor and irradiation regions. To this end, we consider a
+simplified reaction--diffusion radiotherapy model as the ground-truth
+dynamical system and compare its reduced-order surrogate representations
+under several beam--tumor alignment scenarios.
+
+\subsection{Ground Truth Spatial Model}
+
+The spatial model of ground truth is described by Eq.~\eqref{eq:pde_simplified} without the
+uncertainty factor \(\xi(u,x,t).\) The model combines logistic tumor
+growth, spatial invasion, and cell death induced by localized radiation therapy
+. The spatial beam profile \(R(x)\)remains fixed during
+individual experiments, while different relative beam--tumor
+configurations are investigated. The numerical simulations were
+performed on a two-dimensional Cartesian domain using a
+finite-difference discretization of the diffusion operator combined with
+explicit time integration.
+
+The computational grid and time step were
+selected to ensure stable evolution of the reference trajectories during
+the considered time horizon. The parameters used in the experiments are
+summarized in Table~\ref{tab:pde_parameters}. The parameters were selected to produce qualitatively realistic
+radiotherapy dynamics and sufficiently rich spatial effects for
+surrogate-model evaluation rather than to reproduce a specific clinical
+scenario. All quantities are dimensionless or weakly normalized, since
+the primary objective of this work is methodological rather than
+patient-specific modeling.
+
+\begin{table}[H]
+\caption{Ground-truth PDE model parameters used in the radiotherapy simulations.}
+\label{tab:pde_parameters}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.05}
+
+\begin{tabular}{p{1.6cm} p{5.8cm} p{1.8cm}}
+\hline
+\textbf{Parameter} & \textbf{Description} & \textbf{Value} \\
+\hline
+
+$D$ & Tumor diffusion coefficient & 0.002 \\
+
+$\rho$ & Tumor proliferation rate & 0.052 \\
+
+$K$ & Carrying capacity & 1.0 \\
+
+$\beta$ & Radiosensitivity coefficient & 1.25 \\
+
+$\alpha_{0}$ & Radiation damage amplitude & 3.0 \\
+
+$R_{0}$ & Damage decay scale & 0.2 \\
+
+$\gamma$ & Radiation-induced decay coefficient & 3.0 \\
+
+$\nu$ & Nonlinear saturation parameter & 1.0 \\
+
+$R_t$ & Tumor radius & 0.55 \\
+
+$R_b$ & Beam radius (full / partial overlap) & 0.55 / 0.25 \\
+
+$\delta$ & Beam offset displacement & $(1/3$--$2/3)R_t$ \\
+
+$t_1,\; t_2$ & Irradiation times & 15,\;45 \\
+
+$\Delta t$ & Time step & 0.1 \\
+
+$T$ & Simulation horizon & 80 \\
+\hline
+\end{tabular}
+\end{table}
+ 
+
+\subsection{Initial Beam--Tumor Configurations}
+
+To investigate the influence of unresolved spatial dynamics on surrogate
+prediction, four beam--tumor alignment scenarios were considered:
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  \textbf{Full covered beam} - the irradiation field is centered
+  on the tumor region and contains the whole tumor mass,
+\item
+  \textbf{Narrow centered} - the irradiation field is centered
+  on the tumor region and does not contain the whole tumor mass,
+\item
+  \textbf{Slight shift} - the beam center is displaced by $1/3\,R_{tumor}$.
+\item
+  \textbf{Strong shift} - the beam center is displaced by $2/3\,R_{tumor}$.
+\end{enumerate}
+The initial conditions and beam geometries are illustrated in Fig.~\ref{fig:pde_dynamics}.
+Cyan contours denote the irradiation field profile. In the aligned
+configuration, radiotherapy efficiently suppresses tumor growth after
+each treatment cycle. In contrast, increasing geometric mismatch leads
+to the formation of untreated proliferative regions responsible for
+asymmetric regrowth and outward expansion. These unresolved spatial
+effects are intentionally introduced in order to analyze whether reduced
+surrogate models can reconstruct part of the missing spatial dynamics
+despite operating on low-dimensional aggregated tumor representations.
+
+\begin{figure}[t]\centering\includegraphics[width=1.0\textwidth]{figures/image1.png}\caption{Ground-truth PDE dynamics for the four beam-tumor configurations. Cyan contours denote the irradiation beam profile.}\label{fig:pde_dynamics}\end{figure}
+
+\subsection{Temporal Radiotherapy Schedule and MLP Parameters}
+
+The temporal treatment schedule used in all experiments is represented
+by $U(t)$
+In the present study, a deliberately simplified treatment schedule was used, consisting of two irradiation events separated by a fixed time interval. The purpose of this choice is not to optimize a therapeutic protocol, but rather to generate sufficiently rich transient dynamics allowing surrogate models to experience: temporary tumor suppression, delayed regrowth, recolonization effects and geometry-dependent divergence between trajectories.
+
+Consequently, the selected \(U(t)\) should be interpreted as a controlled excitation signal for evaluating surrogate-modeling capabilities rather than as a clinically meaningful radiotherapy protocol. 
+The assimilation interval was chosen to include both irradiation events and the initial post-treatment response phase (see Table~\ref{tab:assimilation}), whereas the testing interval was used to evaluate long-term predictive capability and extrapolation stability after assimilation. 
+To mimic sparse observational settings typical for practical therapy monitoring, only 20 temporally distributed training samples were used in each experiment, with additional Gaussian perturbations introduced for ensemble-based robustness analysis.
+
+\subsection{Experimental Results}
+
+In this section, we present the surrogate-model results obtained for the
+four beam--tumor configurations introduced in Section 4.2. The objective of these experiments is to analyze how increasing geometric mismatch and unresolved spatial dynamics influence the predictive robustness of reduced-order surrogate models under noisy assimilation conditions. For each beam--tumor configuration, we compare the reference PDE trajectory with ensemble predictions generated by the reduced ODE surrogate, the purely data-driven NODE model, and the proposed physics-informed PI-NODE formulation using 20 Gaussian-perturbed training realizations. Particular attention is devoted to the ability of the surrogate models to maintain stable long-term extrapolation and to reconstruct delayed regrowth and asymmetric post-treatment dynamics despite the elimination of explicit spatial information during PDE-to-ODE reduction.
+\begin{figure}[t]\centering\includegraphics[width=1.0\textwidth]{figures/image2.png}\caption{Ensemble uncertainty bands obtained for the four investigated beam--tumor configurations, comparing ODE, NODE, and PI-NODE surrogate predictions against the PDE reference trajectory. Training samples shown are noise-free.}\label{fig:rim_results}\end{figure}
+
+\begin{table}[H]
+\caption{Assimilation and forecasting settings used in the surrogate-model experiments.}
+\label{tab:assimilation}
+\centering
+\small
+\begin{tabular}{lll}
+\toprule
+Quantity & Description & Value \\
+\midrule
+
+$[T_{\mathrm{start}},T_{\mathrm{end}}]$
+& Sparse assimilation window
+& $[15,35]$ \\
+
+$N_{\mathrm{fit}}$
+& Number of sparse assimilation observations
+& 20 \\
+
+$\epsilon_i$
+& Gaussian perturbation
+& $\mathcal{N}\!\left(0,\,(0.02\,y_i)^2\right)$ \\
+
+$\Delta t$
+& Temporal integration step
+& 0.1 \\
+
+$(35,80]$
+& Forecasting / extrapolation interval
+& $(35,80]$ \\
+
+$t_1,t_2$
+& Irradiation events
+& 15,\;45 \\
+
+$N_{\mathrm{ensemble}}$
+& Number of noisy ensemble realizations
+& 50 \\
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+In Table~\ref{tab:nn_parameters} we present the metaparameters of the NODE and PI-NODE neural
+network architectures. Fig.~\ref{fig:rim_results}  summarizes the behavior of the considered
+surrogate formulations across the four investigated irradiation scenarios.
+For all configurations, the reduced ODE, NODE, and PI-NODE surrogates
+reproduce the available training observations almost perfectly within the
+assimilation interval, yielding very small calibration errors even under
+Gaussian-perturbed training samples.
+
+Substantial differences emerge, however, in the prediction interval outside the assimilation window. The classical ODE surrogate typically underestimates delayed post-treatment regrowth because unresolved spatial effects are absorbed into distorted effective parameters. The purely data-driven NODE model achieves very accurate fitting during assimilation but often exhibits unstable extrapolation and increasing long-term drift after the second irradiation event, particularly for geometrically mismatched cases.
+
+\begin{table}[H]
+\caption{Neural surrogate architecture and training parameters used for NODE and PI-NODE models.}
+\label{tab:nn_parameters}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.03}
+
+\begin{tabular}{p{2.5cm} p{5.6cm} p{2.4cm}}
+\hline
+\textbf{Parameter} & \textbf{Description} & \textbf{Value} \\
+\hline
+
+Input variables & NODE/PI-NODE inputs & $(y,z,t,U(t))$ \\
+
+Output & Predicted latent-state derivatives &
+$\left(\frac{dy}{dt},\frac{dz}{dt}\right)$ \\
+
+Latent dimension & Number of surrogate state variables & 2 \\
+
+Hidden layers & Fully connected hidden layers & 2 \\
+
+Hidden units & Neurons per hidden layer & 32 \\
+
+Activation & Nonlinear activation function & ReLU \\
+
+Residual init. & Final-layer initialization & Near-zero \\
+
+Optimizer & Training optimizer & Adam \\
+
+Learning rates & NODE / PI-NODE learning rates &
+$10^{-3}$ / $2\times10^{-4}$ \\
+
+NODE epochs & Pure NODE optimization epochs & 250 \\
+
+PI-NODE epochs & Physics / residual / joint epochs &
+80 / 180 / 90 \\
+
+Batch strategy & Training mode & Full trajectory \\
+
+Loss & Assimilation objective & MSE \\
+
+Residual reg. & PI-NODE residual penalty &
+$L_2$ regularization \\
+
+ODE solver & Trajectory integrator & RK4 \\
+
+Gradients & Differentiation strategy & Automatic diff. \\
+
+PI-NODE mech. & Optimized physical coefficients &
+$(\rho,\gamma,K_{\mathrm{eff}},\mu,\tau)$ \\
+
+PI-NODE resid. & Neural closure weights & $\psi$ \\
+
+Training strategy & PI-NODE optimization schedule &
+Alternating \\
+
+Ensemble training & Independent noisy realizations &
+50 runs \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\caption{Surrogate accuracy relative to the PDE solution}
+\label{tab:results}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{2pt}
+\renewcommand{\arraystretch}{0.9}
+
+\begin{tabular}{lcccc}
+\hline
+\textbf{Case} & \textbf{Model} & \textbf{Train} & \textbf{Test MSE} & \textbf{$e_{80}$} \\
+\hline
+
+Full
+& ODE & 1.0\% & 0.035 & -10\% \\
+& NODE & 0.3\% & 0.065 & -17\% \\
+& \textbf{PI-NODE} & \textbf{0.2\%} & \textbf{0.015} & \textbf{-1\%} \\
+\hline
+
+Narrow
+& ODE & 1.5\% & 0.100 & -22\% \\
+& NODE & 0.3\% & 0.180 & -40\% \\
+& \textbf{PI-NODE} & \textbf{0.3\%} & \textbf{0.035} & \textbf{-10\%} \\
+\hline
+
+Shift
+& ODE & 1.2\% & 0.065 & -16\% \\
+& NODE & 0.4\% & 0.120 & -26\% \\
+& \textbf{PI-NODE} & \textbf{0.4\%} & \textbf{0.025} & \textbf{-2\%} \\
+\hline
+
+Strong
+& ODE & 2.0\% & 0.120 & -21\% \\
+& NODE & 0.5\% & 0.200 & -36\% \\
+& \textbf{PI-NODE} & \textbf{0.5\%} & \textbf{0.040} & \textbf{-3\%} \\
+\hline
+\end{tabular}
+\end{table}
+
+In contrast, the proposed PI-NODE surrogate remains significantly more stable across all investigated configurations. By combining mechanistic radiotherapy dynamics with a learnable residual closure term, the model partially reconstructs unresolved spatial effects eliminated during the PDE-to-ODE reduction process, resulting in more accurate long-term prediction trajectories and substantially narrower uncertainty bands.
+
+The ablation study shown in Fig.~\ref{fig:uncertainty} demonstrates that the predictive performance of the PI-NODE surrogate strongly depends on the balance between the mechanistic component and the learnable residual correction. 
+Moderate residual flexibility produces the most stable long-term extrapolation, whereas excessively strong mechanistic weighting suppresses adaptive correction mechanisms and leads to systematic prediction bias after the second irradiation event. 
+The aggregated RMSE values confirm that overly restrictive physics regularization degrades generalization across heterogeneous beam--tumor geometries, despite maintaining accurate trajectory fitting within the assimilation interval.
+
+The quantitative comparison presented in Table~\ref{tab:results} confirms the improved long-term robustness of the PI-NODE formulation. Although all surrogate models reproduce the assimilation data with very small training errors, their extrapolation behavior differs substantially after the second irradiation event. The reduced ODE and purely data-driven NODE surrogates exhibit progressively increasing prediction drift as the beam--tumor mismatch becomes stronger, whereas the PI-NODE surrogate consistently maintains lower prediction MSE and smaller final-time deviations across all investigated configurations.
+\begin{figure}[t]
+\centering
+\includegraphics[width=1.0\textwidth]{figures/uncertainty.jpg}
+\caption{(PI-NODE ensemble predictions for different physics--residual balance settings in the \texttt{narrow\_centered} configuration. 
+(b) Median relative prediction RMSE aggregated over all completed ensemble runs and all beam--tumor configurations.}
+\label{fig:uncertainty}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.9\textwidth]{figures/image6.png}
+\caption{Computational costs for PDE simulations and the surrogate models.}
+\label{fig:cost}
+\vspace{0.8\baselineskip}
+\end{figure}
+
+Figure~\ref{fig:cost} compares the illustrative computational costs of
+the PDE reference simulations and the reduced surrogate models during
+both calibration and forward prediction. While the PDE simulations are
+computationally expensive due to repeated numerical solution of the
+spatial reaction--diffusion equations, all surrogate formulations enable
+extremely fast predictions after calibration.
+The reduced ODE surrogate exhibits the lowest calibration cost because
+only a few mechanistic parameters are assimilated. The NODE and
+PI-NODE formulations require longer optimization due to neural-network
+training and gradient-based optimization. However, surrogate training is performed only once, whereas the trained surrogate can subsequently generate thousands of fast predictions. So, the
+surrogates remain computationally inexpensive during inference compared
+to the PDE simulations. All neural surrogate models were implemented in PyTorch and trained using CUDA acceleration on a workstation equipped with an 11th Gen Intel\textsuperscript{\textregistered} Core\texttrademark~i5-11500H CPU (2.90\,GHz) and an NVIDIA T1200 GPU.

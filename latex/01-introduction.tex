@@ -1,0 +1,53 @@
+% ==========================================================================
+% Introduction
+% ==========================================================================
+
+\section{Introduction}
+
+Modern oncology increasingly relies on computational models for
+predicting tumor evolution and optimizing anticancer therapies. In
+particular, recent advances in Large Language Models (LLMs) and
+Retrieval-Augmented Generation (RAG) systems have opened the possibility
+of developing interactive frameworks for Language--Driven Therapy Design
+(LDTD), where clinicians can explore treatment scenarios and control
+predictive simulations through natural language \cite{reka2026conversational}. However, practical
+implementation of such systems requires simulation engines operating in
+near real-time, which remains infeasible for complex mechanistic tumor
+models involving high-dimensional spatial dynamics and computationally
+expensive partial differential equations.
+
+A natural solution is the use of surrogate models that approximate the
+behavior of detailed mechanistic simulations at a much lower
+computational cost. Nevertheless, aggressive model reduction -
+especially the elimination of spatial information - introduces
+substantial challenges. Reduced ordinary differential equation (ODE)
+models frequently fail to capture important effects arising from tumor
+geometry, spatial heterogeneity, and mismatches between tumor and
+treatment-field geometry. As a consequence, unresolved spatial dynamics
+are often absorbed into distorted effective model parameters, leading to
+biased predictions and reduced interpretability.
+
+In this work, we investigate whether simple physics-informed surrogate
+models are capable of partially reconstructing the effects of neglected
+spatial dynamics despite operating in a drastically simplified
+non-spatial representation. We focus on radiotherapy-driven tumor
+dynamics (e.g. \cite{Balcerak2025GliODIL}, \cite{sun2025physicsinformed}, \cite{Sujitha2023RadiotherapyBrainTumor}) in scenarios where the irradiation field only partially
+overlaps with the tumor volume or becomes spatially shifted with respect
+to the evolving tumor geometry during repeated treatment fractions. Such
+situations naturally generate unresolved effects including asymmetric
+survival regions, delayed recolonization of irradiated areas, outward
+invasive expansion, and spatially heterogeneous regrowth dynamics.
+The presented framework is intended as a controlled computational
+testbed for investigating whether physics-informed surrogate models can
+reconstruct unresolved spatial effects eliminated during PDE-to-ODE
+reduction. From the Scientific Machine Learning perspective, the
+PI-NODE architecture may also be interpreted as a reduced-order
+UDE-based \cite{rackauckas2019diffeqflux} closure model designed to compensate for unresolved spatial
+dynamics introduced by aggressive PDE-to-ODE reduction including spatially heterogeneous radiation damage accumulation,
+asymmetric post-treatment survival patterns, and delayed
+recolonization fronts.
+
+The experiments presented should therefore be interpreted primarily as a
+methodological investigation of closure-aware surrogate modeling for
+future interactive therapy-planning systems and Language–Driven Therapy
+Design frameworks requiring computationally efficient predictive models.

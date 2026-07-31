@@ -1,0 +1,201 @@
+% ==========================================================================
+% Models of cancer dynamics under therapy
+% ==========================================================================
+
+\section{Models of Cancer Dynamics Under Therapy}
+\label{sec:models}
+\subsection{Spatial Model}
+There is a plethora of cancer models based on various modeling paradigms
+(see e.g., \cite{cristini2010multiscale}, \cite{Sekyere2025VascularTumor}, \cite{wcislo20093}). Most of them concern only the
+phase of tumor growth. Much less consider various anti-cancer therapies
+(see e.g. \cite{Sujitha2023RadiotherapyBrainTumor}, \cite{dzwinel2021supermodeling}). Let us assume that we have an array of such
+models ordered in decreasing complexity starting from the reality R: R
+\(\rightarrow\)$M_{\infty} \to \ldots \to M_i \to M_{i-1} \to \ldots \to M_1 \to M_0$.
+We assume that the number of parameters will decrease from the most
+complicated to the simplest model. Let us assume that $M_{\infty}$
+is the most faithful metaphor of reality R, while possible differences
+come from various sources of uncertainty. In general, even in reality,
+assuming the same two initial setups, one can obtain (after some time)
+different outcomes resulting from the nonlinear amplification of small
+variations in the systems (chaotic behavior). Due to the measurement,
+numerical, and round-off errors the same situation may happen for
+computer simulations. So, here, before introducing the reduced formulation, we consider a more
+general radiotherapy-driven reaction-diffusion model $M_{2}$ in which tumor
+evolution is coupled with treatment response, oxygen-dependent
+radiosensitivity, and unresolved microenvironmental effects. In its
+compact form, such a model may be written as \cite{Sujitha2023RadiotherapyBrainTumor}:
+\begin{equation}
+\label{eq:pde_general}
+\begin{split}
+    \frac{\partial u(x,t)}{\partial t}
+&=
+\nabla \cdot \left( D(x)\nabla u \right)
++
+F_{b}(u,x,t;\theta_{b})
+-
+U(t)\,G_{R}(u,R(x,t),h(x,t);\theta_{R}) \\
+&+
+\mathcal{M}(u,x,t).
+\end{split}
+\end{equation}
+where \(u(x,t)\) denotes the local tumor cell density, \(D(x)\) is a
+possibly heterogeneous diffusion coefficient, \(F\) represents intrinsic
+tumor growth and tissue-limited proliferation, \(G_{R}\) describes
+radiotherapy-induced cell killing modulated by the delivered dose
+\(R(x,t)\)and local radiosensitivity factors \(h(x,t)\), while
+\(\mathcal{M}\) collects additional microenvironmental mechanisms such as
+hypoxia, vascular remodeling, delayed cell death, repair processes, and
+repopulation between treatment fractions. Additionally, \(U(t)\) defines
+the radiotherapy fractionation schedule, i.e. the sequence of
+irradiation events. A convenient representation is
+\begin{equation}
+\label{eq:therapy_schedule}
+U(t)
+=
+\sum_{k=1}^{N_f}
+\delta_{\tau}(t-t_k).
+\end{equation}
+where \(N_{f}\) is the total number of fractions, \(t_{k}\) denotes the
+time of the \(k\)-th irradiation, and \(\delta_{\tau}(t - t_{k})\) is a
+narrow temporal pulse representing dose delivery over a short time
+interval. A simplified instance of this general formulation is then obtained by
+assuming logistic tumor growth, constant diffusion, multiplicative
+radiotherapy-induced killing, and representing all unresolved effects by
+a residual term \cite{Sujitha2024ChemoRadiotherapy}:
+\begin{equation}
+\label{eq:pde_simplified}
+\frac{\partial u(x,t)}{\partial t}
+=
+D\nabla^{2}u
++
+\rho u\left(1-\frac{u}{K}\right)
+-
+\beta U(t)R(x)H(x)u
++
+\xi(u,x,t).
+\end{equation}
+where: \(\rho\) denotes the intrinsic tumor proliferation rate,
+\(K\) is the effective carrying capacity,
+\(\beta\) Radiosensitivity coefficient, the residual term \(\xi(u,x,t)\) represents unresolved biological
+mechanisms and modeling uncertainties.
+
+\subsection{ODE Model}
+
+In practice, 3D tumor structure can be observed using imaging techniques
+such as CT or MRI; however, these observations are limited to discrete
+snapshots separated by relatively large time intervals. Consequently,
+the full spatio-temporal field \(u(x,t)\) is not directly observable.
+Moreover, clinical measurements typically capture only the visible tumor
+volume, which may underestimate the true tumor burden due to limited
+resolution and the presence of diffuse or microscopic disease. In
+reduced models, this discrepancy can be partially compensated by
+introducing an effective tumor mass, for example by incorporating safety
+margins or scaling factors. So, instead, measurements typically
+correspond to macroscopic quantities. Therefore, we introduce an
+observable such as tumor mass as:
+\begin{equation}
+\label{eq:mass}
+y(t)
+=
+\int_{\Omega} u(x,t)\,dx
+\qquad \text{and} \qquad
+\int_{\Omega} \nabla^{2}u\,dx = 0
+\end{equation}
+assuming zero-flux BC. Combining Equation (\ref{eq:pde_simplified}) and  Equation (\ref{eq:mass}):
+\begin{equation}
+\dot y=
+\rho y
+-\frac{\rho}{K}\int_\Omega u^2dx
+-\beta\int_\Omega URHu\,dx
++\int_\Omega \xi\,dx .
+\end{equation}
+If we now wish to approximate it using a logistic ODE:
+\(ay - by^{2} = ay(1 - \frac{b}{a}y)\) in combination with radiotherapy,
+e.g.
+\begin{equation}
+\small
+\begin{aligned}
+\dot y
+&=
+\dot y = ay - by^2 - cU(t)\bar R_{\mathrm{eff}}(t)y
+\\
+\delta(t)
+&=
+-\frac{\rho}{K}
+\Bigl(\int_\Omega u^2dx-\alpha y^2\Bigr)
+-\beta
+\Bigl(
+\int_\Omega U(t)RHu\,dx
+-\bar R_{\mathrm{eff}}(t)y
+\Bigr)
++\int_\Omega \xi(u,x,t)\,dx .
+\end{aligned}
+\end{equation}
+where:
+\begin{itemize}
+    \item $R(x,t)$ local radiotherapy at PDE.
+
+    \item $\bar R_{\mathrm{eff}}(t) = \frac{\int_{\Omega}^{}{R(x,t)H(x)u(x,t)\text{\,}dx}}{\int_{\Omega}^{}{u(x,t)\text{\,}dx}}$ - state-dependent exact effective mean
+
+    \item the available macroscopic input used in ODE/NODE.
+    
+\end{itemize}
+
+This is a very powerful example, as it highlights three sources of
+error:
+\begin{enumerate}
+\item \emph{Spatial non-linearity}
+\begin{equation}
+\int_{\Omega} u^{2}\,dx
+\neq
+\alpha y^{2}
+\end{equation}
+\item \emph{Inconsistent response to radiotherapy}
+\begin{equation}
+\int_{\Omega} R(x,t)H(x)u\,dx
+\neq
+\bar{R}_{\mathrm{eff}}(t)\,y
+\end{equation}
+\item \emph{Missing physics / biology}
+\begin{equation}
+\int_{\Omega} \xi(u,x,t)\,dx
+\neq 0
+\end{equation}
+\end{enumerate}
+Let the ODE surrogate therefore take the ODE system form:
+
+\begin{equation}
+\label{eq:pinode_residual}
+\frac{dy}{dt}
+=
+f_{RT}\!\left(y,U(t);\theta\right)
++
+g_{\phi}\!\left(y,t,U(t)\right)
+\end{equation}
+\(y(t)\) - the system state (e.g., tumor mass, or an extended
+state in NODE),
+\(f_{RT}\) - the known mechanistic core (radiotherapy-driven dynamics),
+\(g_{\phi}\) - a learned correction term accounting for unresolved
+effects,
+\(U(t)\) - the control/input function, describing the applied therapy
+over time.
+
+In our case:
+\begin{equation}
+\label{eq:frt}
+f_{RT}(y,U(t);\theta)
+=
+\rho\,y(1-y)
+-
+\beta\,\overline{R}_{\mathrm{eff}}(t)\,U(t)\,y
+\end{equation}
+The $g_{\phi}$ -- learned correction, which depends on: the
+complete cell distribution, the complete dose distribution, the
+microenvironment, treatment history. Therefore, it compensates for:
+(a) spatial heterogeneity of the dose,
+(b) hypoxia,
+(c) delayed cell death,
+(d) repopulation between fractions,
+and (e) other unmodelled processes.
+Thus, \(g_{\phi}\) accounts for unresolved effects, while the treatment
+itself is represented explicitly by the control function \(U(t)\).

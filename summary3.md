@@ -609,8 +609,10 @@ PYTHONPATH=src python experiments/finalize.py          # tables + figures + pape
 ```
 
 `finalize.py` is idempotent: it aggregates whatever groups have landed, renders
-the figures, regenerates `latex/measured.tex` (every number the paper states),
-and structurally validates the paper with `check_latex.py`.
+the figures, recomputes every number the paper states and reports the ones that
+moved (`update_paper.py` → `results/measured_values.txt`), and structurally
+validates the paper with `check_latex.py`. The paper carries its numbers as
+literals, so a moved value is a hand edit; the report names the file and line.
 
 New code: `src/cancer_sim/realdata/{patient,fk_rt_gpu,cohort}.py` (ground truth),
 `src/cancer_sim/gpu/{surrogates,dataset,fit}.py` (batched surrogate zoo),

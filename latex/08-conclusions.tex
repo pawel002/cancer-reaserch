@@ -1,0 +1,135 @@
+% ==========================================================================
+% Conclusions
+% ==========================================================================
+
+\section{Conclusions}
+
+In this work, we investigated whether physics-informed machine learning
+can compensate for the loss of spatial information introduced during
+aggressive reduction of radiotherapy PDE models to low-dimensional ODE
+surrogates.
+
+The experiments showed that classical reduced ODE models absorb
+unresolved spatial effects into distorted effective parameters, leading
+to degraded long-term prediction accuracy. Purely data-driven NODE
+models improved trajectory fitting during assimilation but exhibited
+unstable extrapolation outside the training interval.
+In contrast, the proposed PI-NODE framework combining mechanistic
+radiotherapy dynamics with a learnable residual closure term achieved
+substantially improved predictive stability across all investigated
+beam--tumor configurations. From the Scientific Machine Learning
+perspective, the resulting formulation may be interpreted as a
+reduced-order UDE-based closure model in which the residual neural
+component partially compensates for unresolved spatial damage dynamics
+eliminated during PDE-to-ODE reduction.
+An additional important result concerns computational efficiency. All
+surrogate models reduced prediction costs by several orders of magnitude
+compared to the full PDE simulations, making such approaches promising
+for future interactive therapy-planning and AI-assisted treatment-design
+frameworks.
+
+\subsection*{What the Real-Cohort Evaluation Adds}
+
+Repeating the study on 117 real glioma patients
+(Section~\ref{sec:realdata}) confirms the central claim, sharpens it, and
+qualifies one of its assumptions.
+
+\paragraph{Closure learning wins where the paper says it should --- by a factor
+of two to three.} On the two geometry-mismatched configurations, a learned
+closure reaches 9.8\,\% and 9.1\,\% forecast
+error against 25.9\,\% and 18.9\,\% for the
+best purely mechanistic surrogate. The effect the closure was introduced to
+capture is real, is larger on patient anatomy than on the two-dimensional
+phantom, and is not explained away by any of the corrections below.
+
+\paragraph{But a single physics--closure balance is not enough.} The optimum
+inverts with the irradiation geometry: on the covered configurations the purely
+mechanistic model wins and an unconstrained closure fails outright, and on the
+mismatched ones the ordering reverses --- the realised physics share of the
+per-configuration winner runs from $\Phi\approx1$ to $\Phi\approx0$ across the
+same cohort. No constant $(\omega,s_{r})$, and no constant $\lambda$, can be
+optimal for both. This is why the useful object is the state-dependent gate of
+Eq.~\eqref{eq:gate} rather than a weight to be tuned once, and it is a
+conclusion a weight ablation on a single configuration cannot reach.
+
+\paragraph{The weights of Eq.~\eqref{eq:pinode_weighted} are not a mixing
+coefficient.} $\omega$ and $s_{r}$ are exact gauge freedoms: each can be
+absorbed, to machine precision, into the parameters of its own branch. They
+cannot be normalised to sum to one because both branches sweep out cones in
+function space, so there is no normalisation to impose. The practical
+consequence is that an $(\omega,s_{r})$ ablation reports the optimisation path
+rather than the strength of the physics, and that the fitted $\rho,\gamma,\mu$
+are gauge coordinates rather than rates. Replacing the pair by a bounded
+closure, an anchored backbone and an orthogonality constraint
+(Eq.~\eqref{eq:cpinode}) yields a single coefficient whose value matches the
+balance the fitted model actually adopts to within a few per cent, and for which
+classical linear interpolation between the mechanistic and learned models is
+meaningful, over the full $0$--$1$ range rather than the
+0.41--0.90 that $(\omega,s_{r})$ can actually reach.
+
+The cost of that identifiability is measured rather than assumed, and the
+ablation localises it. The anchor and the orthogonality projection are not the
+expensive parts --- within the gated family they \emph{improve} accuracy
+(Section~\ref{sec:results_gate}). What costs is the $\tanh$ bound, the one
+ingredient that removes the $s_{r}$ gauge: the best convex setting reaches
+20.19\,\% against 14.47\,\% for the best cell of the original
+grid, and the strongest models in this study are ones with an \emph{unbounded}
+closure supplying $\sim90\,\%$ of the vector field.
+
+\paragraph{The reduced growth law is the cheapest available improvement.} A
+constant-speed invasion front implies $\dot y\propto y^{2/3}$
+(Eq.~\eqref{eq:volumetric_rate}), and the reference trajectories confirm it
+(median exponent $0.81$). Adopting that exponent improves the purely
+mechanistic surrogate from 25.62\,\% to 23.17\,\% with no additional
+parameters, no network and no additional training cost --- and it improves the
+PI-NODE's reliability as well, cutting its inter-quartile spread by nearly half.
+It is worth being precise about the mechanism: the oracle residuals of the two
+backbones are nearly identical (6.96\,\% and 6.79\,\%), so the
+volumetric law does not let the model \emph{represent} more --- it makes
+extrapolation from a short window better conditioned.
+
+\paragraph{Closure learning is bounded by estimation, not by expressiveness.}
+Fitted to the entire noise-free trajectory, the reduced form already reaches
+$\approx6.79$\,\% error; the assimilated models are several times
+worse. The gap is therefore dominated by what twenty noisy samples cannot
+determine. This explains a result that runs against the usual expectation: a
+\emph{small} unconstrained residual correction is the most damaging
+configuration, because it is flexible enough to absorb in-window noise and its
+error then compounds across the forecast. Flexibility helps only when it is
+constrained --- bounded in magnitude, anchored against reabsorption into the
+mechanistic parameters, and projected off their sensitivities.
+
+\paragraph{The balance should be set, not learned.} A state-dependent gate is
+the natural way to exploit the regime dependence above, and it does not work:
+the freer the gate, the worse the forecast, with a completely unrestrained gate
+settling at a uniform intermediate balance and producing the worst result of its
+ablation. Nor is this a missing-input problem --- giving the gate the exact
+scalar that separates the regimes changes the forecast by at most $0.24$
+percentage points (Section~\ref{sec:results_gate}). The obstruction is the
+objective: every setting of the gate fits the assimilation window to the
+observation-noise floor, so the regime distinction has no in-window signature at
+all, and the payoff lies entirely in a forecast window the loss never sees. No
+parameterisation and no side information can recover a schedule that the
+training signal does not contain. Since the treatment geometry is known at
+planning time and the right choice is worth a factor of two to three, the
+practical recommendation is to \emph{set} the physics--closure balance from the
+plan rather than fit it: physics-dominated for a conformal, well-covering field;
+closure authority for an under-sized or displaced one. Learning it instead
+requires a forecast-window objective, and therefore a longitudinal cohort with a
+post-treatment observation --- a data-collection requirement rather than a
+modelling one.
+
+\paragraph{Limitations.} The reference dynamics are simulated, not measured: the
+released dataset provides two static timepoints and no dose-over-time signal, so
+a dense response curve cannot be observed. Patient anatomy, tumour geometry and
+invasiveness are imaging-derived, but the absolute growth timescale,
+radiosensitivity and hypoxic radioresistance are assigned per patient and are
+recoverable only through assimilation. What is established is therefore a
+comparison of reduced-model \emph{forms} on patient-specific geometry, not a
+patient-calibrated clinical prediction, and the recurrence segmentations
+available in the dataset remain an untouched validation target.
+Future work will focus on more realistic multiscale tumor models
+(e.g., similar to \cite{Klusek2019TumorGPU}), uncertainty-aware
+surrogate dynamics, explicit latent damage modeling, and integration
+with clinical knowledge systems and LLM-driven therapy-design
+environments.

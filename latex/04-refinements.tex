@@ -1,0 +1,232 @@
+% ==========================================================================
+% Model refinements and their derivations
+% ==========================================================================
+
+\section{Model Refinements and Their Derivations}
+\label{sec:refinements}
+
+The reduced formulation of Section~\ref{sec:surrogates} was evaluated against a
+patient-grounded three-dimensional reference (Section~\ref{sec:realdata}). Four
+modifications to the reduced equations were required for that evaluation to be
+well posed: a corrected growth law, an identifiable replacement for the
+physics--residual weights, a state-dependent form of that replacement, and a
+diagnostic that makes the resulting balance measurable. Each is derived below
+together with the property it establishes, and
+Table~\ref{tab:changes} summarises them.
+
+\subsection{Growth law: from logistic to volumetric}
+\label{sec:volumetric}
+
+The reduced model of Eq.~\eqref{eq:ode_rt_2state} assumes logistic growth of the
+tumour \emph{mass}. The reference dynamics, however, are the spatial integral of
+a Fisher--Kolmogorov invasion, for which the growth law is different.
+
+For a focal seed spreading through tissue, the reaction--diffusion front
+advances at the constant Fisher--KPP speed
+$v = 2\sqrt{Df}$, so the radius of the invaded region grows as
+$R(t) = R_{0} + v\,t$. With the interior saturated at carrying capacity, the
+integrated mass follows the invaded volume,
+\begin{equation}
+\label{eq:volumetric_mass}
+y(t) \;=\; \int_{\Omega} u(x,t)\,dx \;\simeq\; c\,R(t)^{3}
+\;=\; y_{0}\left(1 + b\,t\right)^{3},
+\qquad b = \frac{v}{R_{0}} .
+\end{equation}
+Differentiating and eliminating $t$ through $R \propto y^{1/3}$ gives
+\begin{equation}
+\label{eq:volumetric_rate}
+\dot y \;=\; 3\,c\,R^{2}\,\dot R \;=\; 3\,c^{1/3}v\;y^{2/3}
+\;\;\propto\;\; y^{\,q}, \qquad q = \tfrac{2}{3},
+\end{equation}
+whereas the logistic law of Eq.~\eqref{eq:ode_rt_2state} is the case $q = 1$.
+The exponent is therefore not a free modelling choice: it is fixed by the
+geometry of a constant-speed invasion front, and $q=1$ over-predicts the
+acceleration of an expanding tumour.
+
+We accordingly generalise the tumour equation to
+\begin{equation}
+\label{eq:backbone_q}
+\dot y \;=\; \rho\,y^{\,q}\!\left(1-\frac{y}{K_{\mathrm{eff}}}\right)
+\;-\;\gamma\,z\,y\;-\;\mu\,y ,
+\qquad
+\dot z = -\frac{z}{\tau} + U(t),
+\end{equation}
+with $q$ either fixed at $2/3$ (\emph{volumetric} backbone), fixed at $1$
+(the original \emph{logistic} backbone), or trained
+(\emph{power} backbone, $q$ constrained to $[0.3,1.2]$ through a sigmoid).
+Everything else in Eq.~\eqref{eq:ode_rt_2state} --- in particular the latent
+damage state and the multi-fraction memory it provides --- is unchanged.
+
+The mechanism is worth naming: for a sphere expanding at constant radial speed,
+$\dot V = v\,|\partial V|\propto V^{2/3}$, so growth is proportional to the
+\emph{surface} of the invaded region, not to its volume. The logistic law makes
+it proportional to the volume, which is why it over-predicts the acceleration of
+an expanding tumour.
+
+\emph{What this achieves.} Measured on the untreated reference trajectories of
+the real cohort, $y^{1/3}$ is linear in $t$ with median $R^{2} = 0.9995$
+(against $0.9864$ for the mass itself), and the effective exponent recovered
+from $\mathrm{d}\log\dot y / \mathrm{d}\log y$ has median $0.81$
+($0.65$--$0.90$ across the cohort). The empirical value sits
+between the idealised surface-growth exponent $2/3$ and the logistic $1$, and
+clearly away from the latter (Fig.~\ref{fig:growth_law}); the offset from $2/3$
+is expected, since in real anatomy the interior is not fully saturated and the
+front is neither spherical nor of uniform speed. That the fixed value $2/3$
+nevertheless outperforms a \emph{trained} exponent
+(Table~\ref{tab:main_results}) is itself informative: the short assimilation
+window does not determine $q$, so imposing the mechanistically derived value is
+better than estimating it.
+
+\subsection{Identifiability of the physics--residual weights}
+\label{sec:gauge}
+
+Eq.~\eqref{eq:pinode_weighted} introduces two weights, $\omega$ on the
+mechanistic term and $s_{r}$ on the neural closure. Because they do not sum to
+one they cannot be read as a convex mixture, and it is natural to ask what
+balance they do express. The answer is that, individually, they express nothing:
+both are exact gauge freedoms of the model.
+
+\paragraph{The mechanistic weight.}
+Expanded, the mechanistic tumour term is
+\begin{equation}
+\label{eq:frt_expanded}
+f^{(y)}_{\mathrm{RT}}
+= \rho\,y - \frac{\rho}{K_{\mathrm{eff}}}\,y^{2} - \gamma\,z\,y - \mu\,y ,
+\end{equation}
+which is \emph{jointly linear} in $(\rho,\gamma,\mu)$ at fixed
+$K_{\mathrm{eff}}$ --- note that the quadratic coefficient $\rho/K_{\mathrm{eff}}$
+carries the same $\rho$ as the linear one. It is therefore homogeneous of degree
+one in those three parameters, so
+\begin{equation}
+\label{eq:omega_gauge}
+\omega f^{(y)}_{\mathrm{RT}}(y,z,U;\rho,\gamma,K_{\mathrm{eff}},\mu)
+=
+f^{(y)}_{\mathrm{RT}}\!\left(y,z,U;\,\omega\rho,\;\omega\gamma,\;K_{\mathrm{eff}},\;\omega\mu\right).
+\end{equation}
+Hence, for any $c>0$, the pairs $(\omega,\theta)$ and
+$\bigl(\omega/c,\;T_{c}\theta\bigr)$ with
+$T_{c}:(\rho,\gamma,K_{\mathrm{eff}},\mu,\tau)\mapsto(c\rho,c\gamma,K_{\mathrm{eff}},c\mu,\tau)$
+generate the \emph{identical} vector field, and $\{T_{c}\}_{c>0}$ is a
+one-parameter group. Note that $K_{\mathrm{eff}}$ must \emph{not} be rescaled:
+by Eq.~\eqref{eq:frt_expanded} scaling $\rho$ already scales the quadratic term,
+and scaling $K_{\mathrm{eff}}$ too would undo it. The same applies to $\tau$,
+which lives in the $\dot z$ equation and is untouched by $\omega$.
+
+\paragraph{The residual weight.}
+The closure's output layer is affine, $g_{\psi}=W_{3}h_{2}+b_{3}$, so for any
+$k>0$
+\begin{equation}
+\label{eq:sr_gauge}
+s_{r}\,g_{\psi}(\,\cdot\,;W_{1},b_{1},W_{2},b_{2},W_{3},b_{3})
+=
+\frac{s_{r}}{k}\,g_{\psi}(\,\cdot\,;W_{1},b_{1},W_{2},b_{2},kW_{3},kb_{3}).
+\end{equation}
+
+Both statements were verified numerically in double precision: the maximum
+relative trajectory difference is $0$ for the $\omega$
+transformation and $2.1\times10^{-16}$ for the $s_{r}$ transformation. With the
+near-zero output initialisation prescribed in Section~\ref{sec:surrogates},
+$s_{r}$ additionally has \emph{no} effect at all at initialisation: values
+spanning five orders of magnitude give byte-identical trajectories.
+
+\emph{Consequence.} $(\omega,s_{r})$ is a two-parameter gauge group acting on
+$(\theta,\psi)$, not a mixing weight. The reason the two numbers cannot be
+normalised to sum to one is not notational: both branches sweep out cones in
+function space, so any rescaling of either weight is absorbed by that branch's
+own parameters. An ablation over $(\omega,s_{r})$ therefore measures the
+\emph{initialisation and optimisation path}, not the strength of the physics,
+and the fitted $\rho,\gamma,\mu$ are gauge coordinates rather than physical
+rates --- only $\omega\rho$, $\omega\gamma$, $\omega\mu$, $K_{\mathrm{eff}}$ and
+$\tau$ are comparable between settings.
+
+\subsection{A calibrated physics--closure control}
+\label{sec:convex}
+
+Making the weights convex is by itself insufficient: a cone remains a cone, so
+$(1-\lambda)$ would simply be reabsorbed into $\theta$. We therefore combine a
+convex mixture with two constraints that remove the two gauges:
+\begin{equation}
+\label{eq:cpinode}
+\boxed{\;
+\dot y \;=\; \underbrace{(1-\lambda)\,f^{(y)}_{\mathrm{RT}}(y,z,U;\theta)}_{\text{physics}}
+\;+\;
+\underbrace{\lambda\,\sigma_{\mathrm{ref}}\,\tanh\!\bigl(g_{\psi}(y,z,t,U)\bigr)}_{\text{closure}},
+\qquad
+\dot z = -\frac{z}{\tau}+U(t). \;}
+\end{equation}
+\begin{enumerate}
+\item \textbf{Bounded closure.} $\sigma_{\mathrm{ref}}\tanh(\cdot)$ replaces the
+  cone $\{s_{r}g_{\psi}\}$ by a ball of radius $\lambda\sigma_{\mathrm{ref}}$, so
+  $\lambda$ genuinely caps the closure's authority and Eq.~\eqref{eq:sr_gauge}
+  no longer applies. The scale $\sigma_{\mathrm{ref}}$ is estimated from the
+  assimilation data alone, as the root-mean-square derivative of a
+  Savitzky--Golay smooth of the sparse observations; measured against the true
+  derivative RMS on the cohort it lands at $1.45\times$ of it, so the two
+  branches of Eq.~\eqref{eq:cpinode} are commensurate and $\lambda$ means the
+  same thing from patient to patient.
+\item \textbf{Anchored physics.} A log-prior
+  $w_{\theta}\bigl\|\log(\theta/\theta_{\mathrm{ref}})\bigr\|^{2}$, with
+  $\theta_{\mathrm{ref}}$ the assimilated mechanistic fit, penalises exactly the
+  rescaling $T_{c}$ of Eq.~\eqref{eq:omega_gauge} and so removes the remaining
+  gauge. Without it the substitution $\lambda\to\lambda'$,
+  $\theta\to\frac{1-\lambda}{1-\lambda'}\theta$ leaves the physics branch
+  unchanged --- verified at $1.6\times10^{-16}$.
+\item \textbf{Orthogonal closure.} A penalty
+  $w_{\perp}\bigl\|P_{\mathrm{span}(\partial f/\partial\theta)}\tanh g_{\psi}\bigr\|^{2}$,
+  with $P$ the least-squares projection onto the span of the mechanistic
+  parameter sensitivities along the trajectory, prevents the closure from
+  performing any correction that a change of $\theta$ could have performed. This
+  is what identifies the physics--closure \emph{ratio}, and it directly targets
+  the failure mode this work is about: reduced surrogates absorbing unresolved
+  spatial effects into distorted effective parameters.
+\end{enumerate}
+
+Because $\lambda$ is now a bound on authority rather than a free scale, its two
+endpoints are exact: $\lambda=0$ recovers the assimilated mechanistic model
+identically, and $\lambda=1$ is a purely learned --- but bounded --- vector field
+retaining the mechanistic damage state. The first identity is confirmed to the
+last reported digit by the benchmark (Table~\ref{tab:main_results}).
+
+\subsection{Learned gating}
+\label{sec:gate}
+
+A single scalar $\lambda$ forces the same physics--closure balance everywhere on
+the trajectory, although the reduced physics is adequate in some regimes
+(undisturbed growth) and inadequate in others (immediately after a fraction,
+during recolonisation). We therefore also consider a state-dependent gate
+\begin{equation}
+\label{eq:gate}
+\lambda(y,z,t,U) \;=\; \sigma\!\bigl(h_{\xi}(y,z,t,U) + \beta_{0}\bigr),
+\qquad
+\mathcal{L} \;\mathrel{+}=\; \eta\;\overline{\lambda},
+\end{equation}
+where $\sigma$ is the logistic function, $\beta_{0}$ sets the prior level, and
+the penalty $\eta\overline{\lambda}$ on the trajectory-averaged gate expresses a
+preference for the physics wherever the closure is not needed. Equations
+\eqref{eq:cpinode} and \eqref{eq:gate} are otherwise identical.
+
+\subsection{Reporting the realised balance}
+\label{sec:phi}
+
+Because a nominal weight need not equal the balance a fitted model actually
+adopts, we report both. Along the integrated trajectory we measure the
+\emph{realised physics share}
+\begin{equation}
+\label{eq:phi}
+\Phi(t) \;=\;
+\frac{\bigl|\dot y_{\mathrm{phys}}(t)\bigr|}
+     {\bigl|\dot y_{\mathrm{phys}}(t)\bigr| + \bigl|\dot y_{\mathrm{ML}}(t)\bigr|}
+\;\in\;[0,1],
+\end{equation}
+where $\dot y_{\mathrm{phys}}$ and $\dot y_{\mathrm{ML}}$ are the two additive
+terms of Eq.~\eqref{eq:pinode_weighted} or Eq.~\eqref{eq:cpinode}. $\Phi$ is
+defined identically for both parameterisations, which places them on a single
+comparable axis, and it is reported separately inside the assimilation window
+and in the forecast window.
+
+One caveat is worth stating. $\Phi$ measures the two branches' magnitudes, not
+their agreement: two large terms of opposite sign that nearly cancel give
+$\Phi\approx\tfrac12$ while contributing little net drift. $\Phi$ is therefore an
+honest measure of \emph{how much work each branch is doing}, which is the
+quantity a mixing weight is supposed to control, but it should be read alongside
+the forecast error rather than on its own.
