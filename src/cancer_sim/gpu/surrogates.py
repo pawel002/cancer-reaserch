@@ -253,6 +253,12 @@ class ModelSpec:
     # supplies for free).  The closure itself never sees it, so the physics/ML
     # blend stays identifiable -- only the *schedule* becomes observable.
     gate_context: bool = False
+    # `scaled` only: multiply BOTH weights by the patient's own rate scale
+    # sigma_ref, so (omega, s_r) are dimensionless ratios rather than absolute
+    # rates.  Neither reachable set changes -- both weights stay exact gauges --
+    # but the branches start commensurate with THIS patient's dynamics instead
+    # of the cohort median, which is what the fixed global pair silently assumes.
+    scale_by_sigma: bool = False
     l2_closure: float = 1e-6
     # Identifiability of the blend (see Surrogate docstring):
     w_theta_anchor: float = 0.0   # w * ||log(theta / theta_ref)||^2
@@ -342,7 +348,8 @@ class Surrogate(nn.Module):
 
         g = self.closure(self._feat(y, z, t_norm, U))[..., 0]
         if sp.blend == "scaled":                      # paper Eq. pinode_weighted
-            return sp.omega * f_y, sp.s_r * g, dz, torch.zeros_like(y)
+            sc = self.sigma if sp.scale_by_sigma else 1.0
+            return sp.omega * sc * f_y, sp.s_r * sc * g, dz, torch.zeros_like(y)
 
         lam = self.lam_of(y, z, t_norm, U)            # convex / gated
         return (1.0 - lam) * f_y, lam * self.sigma * torch.tanh(g), dz, lam
