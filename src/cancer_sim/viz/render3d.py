@@ -44,7 +44,7 @@ def _emit(ax, field, plane, cmap, vmax, shade=True, alpha=1.0, thresh=0.02,
 
 
 def figure_volume(pid: str, cohort_dir: Path, out: Path,
-                  case: str = "strong_shift",
+                  case: str = "narrow_centered",
                   times: Sequence[float] = (0.0, 18.0, 48.0, 80.0),
                   compare: Optional[str] = "full_cover"):
     """Three-dimensional view of the tumour before, during and after treatment."""

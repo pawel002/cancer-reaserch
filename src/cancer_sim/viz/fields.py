@@ -79,7 +79,7 @@ def draw_slice(ax, anat: Dict, A: Optional[np.ndarray] = None,
 
 def figure_beam_configs(pid: str, cohort_dir: Path, out: Path,
                         cases: Sequence[str] = ("full_cover", "narrow_centered",
-                                                "slight_shift", "strong_shift")):
+                                                )):
     """The four tumour--beam configurations on one patient's real anatomy."""
     st.apply()
     d = load_fields(pid, cohort_dir)

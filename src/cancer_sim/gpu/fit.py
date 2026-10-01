@@ -305,6 +305,9 @@ def fit(spec: ModelSpec, bench: Bench, device: str = "cuda",
         lam_t = _resample(pred_np, lam_g, bench.t_pred)
         share = _resample(pred_np, share_g, bench.t_pred)
         th = {k: v[sel].cpu().numpy() for k, v in model.backbone.theta().items()}
+        # where a trainable omega / s_r actually ended up
+        th.update({k: v.detach()[sel].cpu().numpy()
+                   for k, v in model.learned_weights().items()})
 
     return FitResult(spec=spec, y_pred=y_pred,
                      train_mse=best_cm.gather(0, pick.unsqueeze(0))[0].cpu().numpy(),

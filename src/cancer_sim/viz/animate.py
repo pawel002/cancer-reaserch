@@ -18,7 +18,7 @@ from matplotlib.colors import LinearSegmentedColormap, to_rgba
 
 from . import style as st
 
-CASES = ("no_treatment", "full_cover", "narrow_centered", "strong_shift")
+CASES = ("no_treatment", "full_cover", "narrow_centered")
 
 _DOSE_RGB = to_rgba(st.DOSE)[:3]
 # Beam wash: painted over the anatomy only while the source is on, so
@@ -136,9 +136,10 @@ def anim_treatment(d: Dict, dst: Path, pid: str, stride: int = 2) -> None:
     U = d["full_cover/U"]
     umax = float(U.max()) or 1.0
 
-    fig = plt.figure(figsize=(11.0, 6.2), dpi=DPI)
-    gs = fig.add_gridspec(2, 4, height_ratios=[2.5, 1.0], hspace=0.10,
-                          wspace=0.03, left=0.052, right=0.988,
+    ncol = len(CASES)
+    fig = plt.figure(figsize=(2.9 * ncol, 6.2), dpi=DPI)
+    gs = fig.add_gridspec(2, ncol, height_ratios=[2.5, 1.0], hspace=0.10,
+                          wspace=0.03, left=0.052 * 4 / ncol, right=0.988,
                           top=0.858, bottom=0.098)
 
     arts, badges = {}, {}
@@ -179,12 +180,12 @@ def anim_treatment(d: Dict, dst: Path, pid: str, stride: int = 2) -> None:
     axc.set_xlim(0, float(t[-1])); axc.set_ylim(0, ymax * 1.06)
     axc.set_xlabel("time (model units)")
     axc.set_ylabel("tumour mass  $y(t)/y(0)$")
-    axc.legend(ncol=4, loc="lower left", bbox_to_anchor=(0.0, 1.005),
+    axc.legend(ncol=ncol, loc="lower left", bbox_to_anchor=(0.0, 1.005),
                fontsize=8.4)
 
     _titles(fig, f"Radiotherapy on real glioma anatomy — patient {pid}",
             "One patient's white/grey matter drives a 3-D reaction-diffusion "
-            "tumour; four beam geometries irradiate it. Violet wash = source "
+            "tumour; two beam geometries irradiate it. Violet wash = source "
             "on, dashed outline = planned target volume.")
 
     frames = []

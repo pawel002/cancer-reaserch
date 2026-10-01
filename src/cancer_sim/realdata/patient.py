@@ -101,17 +101,13 @@ class BeamConfig:
 # `full_cover` is a clinically standard GBM plan (FLAIR abnormality + 15 mm);
 # the other three are the controlled geometry mismatches the paper studies.
 #
-# `narrow_centered` and `strong_shift` are deliberately tuned to deliver almost
-# the SAME total dose to the tumour (mass-weighted coverage ~0.45 for both) with
-# completely different spatial patterns -- centred-but-too-small versus
-# correctly-sized-but-displaced.  A reduced 0-D surrogate sees an identical
-# U(t) and a near-identical effective coverage for the two, so any difference in
-# outcome is by construction unresolvable without a closure term.
+# `full_cover` is a clinically standard plan; `narrow_centered` conforms to the
+# enhancing core only, so it under-covers the infiltrative margin the reduced
+# 0-D state cannot see.  The pair isolates exactly the failure the closure term
+# exists to absorb, without introducing an artificial displacement.
 BEAM_CONFIGS: Tuple[BeamConfig, ...] = (
     BeamConfig("full_cover", "Full cover (PTV = FLAIR + 15 mm)", "whole", 15.0, 0.0),
     BeamConfig("narrow_centered", "Narrow centred (PTV = core + 5 mm)", "core", 5.0, 0.0),
-    BeamConfig("slight_shift", "Slight shift (0.75 R)", "whole", 15.0, 0.75),
-    BeamConfig("strong_shift", "Strong shift (1.5 R)", "whole", 15.0, 1.5),
 )
 BEAM_BY_NAME = {b.name: b for b in BEAM_CONFIGS}
 

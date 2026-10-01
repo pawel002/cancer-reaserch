@@ -31,7 +31,7 @@ N_FIT = 20
 NOISE_STD = 0.02
 N_MEMBERS = 20
 
-CASES = ("full_cover", "narrow_centered", "slight_shift", "strong_shift")
+CASES = ("full_cover", "narrow_centered")
 
 
 @dataclass
@@ -78,18 +78,22 @@ class Bench:
                          for p, c in self.labels], dtype=float)
 
 
-def _member_noise(pid: str, case: str, member: int, y: np.ndarray) -> np.ndarray:
-    seed = int.from_bytes(
-        hashlib.sha256(f"{pid}|{case}|{member}".encode()).digest()[:8], "big")
+def _member_noise(pid: str, case: str, member: int, y: np.ndarray,
+                  noise_std: float = NOISE_STD) -> np.ndarray:
+    # The seed includes the noise level, so a 2 % and a 5 % study do not reuse
+    # the same draws and then get compared as if they were independent.
+    seed = int.from_bytes(hashlib.sha256(
+        f"{pid}|{case}|{member}|{noise_std:g}".encode()).digest()[:8], "big")
     rng = np.random.default_rng(seed)
-    sigma = NOISE_STD * np.maximum(np.abs(y), 1e-6)
+    sigma = noise_std * np.maximum(np.abs(y), 1e-6)
     return np.clip(y + rng.normal(0.0, sigma), 1e-6, None)
 
 
 def build(cohort_dir: Path, pids: Optional[Sequence[str]] = None,
           cases: Sequence[str] = CASES, n_members: int = N_MEMBERS,
           n_fit: int = N_FIT, train_start: float = TRAIN_START,
-          train_end: float = TRAIN_END) -> Bench:
+          train_end: float = TRAIN_END,
+          noise_std: float = NOISE_STD) -> Bench:
     cohort_dir = Path(cohort_dir)
     if pids is None:
         pids = sorted(p.name.replace("_curves.npz", "")
@@ -120,7 +124,8 @@ def build(cohort_dir: Path, pids: Optional[Sequence[str]] = None,
             y_clean = np.interp(t_obs, t, y)
             cols_clean.append(y_clean)
             for m in range(n_members):
-                cols_noisy.append(_member_noise(pid, case, m, y_clean))
+                cols_noisy.append(_member_noise(pid, case, m, y_clean,
+                                                 noise_std))
 
     return Bench(
         pids=pids, cases=list(cases), labels=labels,

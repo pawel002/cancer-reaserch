@@ -259,6 +259,14 @@ class ModelSpec:
     # but the branches start commensurate with THIS patient's dynamics instead
     # of the cohort median, which is what the fixed global pair silently assumes.
     scale_by_sigma: bool = False
+    # `scaled` only: make omega and/or s_r trainable instead of fixed.
+    # "" | "both" | "omega" | "s_r".  NOTE this cannot identify a "true"
+    # balance -- the loss is exactly invariant along (omega, theta) ->
+    # (omega/c, c theta), so that direction is flat and the optimiser is free
+    # to slide along it.  What it *can* do is remove the hand-tuned constant,
+    # letting the fit pick its own preconditioning.  Whether that helps is an
+    # empirical question, which is the point of measuring it.
+    train_weights: str = ""
     l2_closure: float = 1e-6
     # Identifiability of the blend (see Surrogate docstring):
     w_theta_anchor: float = 0.0   # w * ||log(theta / theta_ref)||^2
@@ -283,6 +291,12 @@ class Surrogate(nn.Module):
         sig = np.broadcast_to(np.asarray(
             sigma_ref if sigma_ref is not None else 0.05, dtype=np.float64), (B,))
         self.register_buffer("sigma", torch.tensor(sig, dtype=DTYPE, device=device))
+
+        tw = spec.train_weights if spec.blend == "scaled" else ""
+        if tw in ("both", "omega"):
+            self.raw_omega = _param(spec.omega, B, device)
+        if tw in ("both", "s_r"):
+            self.raw_s_r = _param(spec.s_r, B, device)
 
         self.anchor: Optional[Dict[str, torch.Tensor]] = None
         self.register_buffer("context", torch.zeros(B, dtype=DTYPE, device=device))
@@ -322,6 +336,23 @@ class Surrogate(nn.Module):
             return torch.full_like(y, float(self.spec.lam))
         return torch.zeros_like(y)
 
+    def weights(self):
+        """Current ``(omega, s_r)`` -- scalars when fixed, tensors when trained."""
+        om = (F.softplus(self.raw_omega) + EPS if hasattr(self, "raw_omega")
+              else self.spec.omega)
+        sr = (F.softplus(self.raw_s_r) + EPS if hasattr(self, "raw_s_r")
+              else self.spec.s_r)
+        return om, sr
+
+    def learned_weights(self) -> Dict[str, torch.Tensor]:
+        """Only the weights that are actually trainable, for reporting."""
+        out = {}
+        if hasattr(self, "raw_omega"):
+            out["omega"] = F.softplus(self.raw_omega) + EPS
+        if hasattr(self, "raw_s_r"):
+            out["s_r"] = F.softplus(self.raw_s_r) + EPS
+        return out
+
     def begin(self) -> Dict[str, torch.Tensor]:
         """Parameter transforms hoisted out of the RK4 loop (state-independent)."""
         ctx = dict(self.backbone.theta())
@@ -349,7 +380,8 @@ class Surrogate(nn.Module):
         g = self.closure(self._feat(y, z, t_norm, U))[..., 0]
         if sp.blend == "scaled":                      # paper Eq. pinode_weighted
             sc = self.sigma if sp.scale_by_sigma else 1.0
-            return sp.omega * sc * f_y, sp.s_r * sc * g, dz, torch.zeros_like(y)
+            om, sr = self.weights()
+            return om * sc * f_y, sr * sc * g, dz, torch.zeros_like(y)
 
         lam = self.lam_of(y, z, t_norm, U)            # convex / gated
         return (1.0 - lam) * f_y, lam * self.sigma * torch.tanh(g), dz, lam

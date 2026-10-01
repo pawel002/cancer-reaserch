@@ -20,7 +20,7 @@ from matplotlib.lines import Line2D
 from . import style as st
 from ..realdata.cohort import load_curves
 
-CASES = ("full_cover", "narrow_centered", "slight_shift", "strong_shift")
+CASES = ("full_cover", "narrow_centered")
 
 
 def load_manifests(cohort_dir: Path) -> List[Dict]:
