@@ -33,13 +33,13 @@
 \section{Wstęp}
 
 Pełny model przestrzenny guza to równanie różniczkowe cząstkowe na siatce
-trójwymiarowej. Takie założenia opisują rozwój dokładne, lecz jego rozwiązanie jest zbyt wolne do interaktywnego planowania terapii.
+trójwymiarowej. Takie podejście opisuje rozwój guza dokładnie, lecz jego rozwiązanie jest zbyt wolne do interaktywnego planowania terapii.
 Można je zredukować do układu dwóch równań zwyczajnych opisujących wyłącznie
 całkowitą masę guza $y(t)$, lecz redukcja gubi informację o tym,
 gdzie guz się znajduje i gdzie trafiła dawka. Badany pomysł (PI-NODE) polega na zachowaniu mechanistycznego rdzenia ODE i dołożeniu
 do niego uczonego członu domykającego, który ma odtworzyć utraconą informację. Jeden przebieg modelu przestrzennego to
 2,3~s na GPU (siatka $160^3$, 5,3~mln liczb stanu). Model zredukowany to
-6,4~ms na jednym rdzeniu CPU. Jest to około 350$\times$ szybciej, przy stanie złożonym z dwóch liczb. To jest powód, dla którego w ogóle godzimy się na utratę informacji przestrzennej oraz użycie uproszczonego modelu. W dalej części opisze uzyskane wyniki.
+6,4~ms na jednym rdzeniu CPU. Jest to około 350$\times$ szybciej, przy stanie złożonym z dwóch liczb. To jest powód, dla którego w ogóle godzimy się na utratę informacji przestrzennej oraz użycie uproszczonego modelu. W dalszej części opiszę uzyskane wyniki.
 
 \section{Dane referencyjne: GliODIL rozszerzony o radioterapię}
 
@@ -49,14 +49,14 @@ dwóch progów. Model bazowy to równanie reakcyjno-dyfuzyjne Fishera--Kołmogor
 \begin{equation}
 \frac{\partial A}{\partial t} \;=\; \nabla\!\cdot\!\big(D(x)\nabla A\big) + f\,A(1-A),
 \qquad
-D(x) = \begin{cases} D_w & \text{istota biała}\\[1mm] D_w/r & \text{istota szara},\end{cases}.
+D(x) = \begin{cases} D_w & \text{istota biała}\\[1mm] D_w/r & \text{istota szara}.\end{cases}
 \end{equation}
-Radioterapię została dołożona na potrzeby naszej symulacji, orginalny framework jej nie uwzględniał. Jest ona opisana przez jedno nowe pole i dwa nowe człony:
+Radioterapia została dołożona na potrzeby naszej symulacji, oryginalny framework jej nie uwzględniał. Jest ona opisana przez jedno nowe pole i dwa nowe człony:
 \begin{align}
 \frac{\partial Z}{\partial t} &= -\frac{Z}{\tau} + U(t)B(x) \label{eq:radiotherapy1} \\
 \frac{\partial A}{\partial t} &= \nabla\cdot\big(D\nabla A\big) + fA(1-A) - \gamma(1-hA)ZA \label{eq:radiotherapy2}
 \end{align}
-Człon $Z$ opisuje naprawialne uszkodzenie, natomiast $A$ opisuje zabijanie komórek. Zmienne w równaniach \eqref{eq:radiotherapy1} i \eqref{eq:radiotherapy2} opsuje tabelka \ref{table:radiotherapy}.
+Człon $Z$ opisuje naprawialne uszkodzenie, natomiast $A$ opisuje zabijanie komórek. Zmienne w równaniach \eqref{eq:radiotherapy1} i \eqref{eq:radiotherapy2} opisuje tabela~\ref{table:radiotherapy}.
 
 \begin{table}[H]
 \centering\small
@@ -106,15 +106,15 @@ wewnątrz wiązki w chwili $t=0$.}
 Rozkład \emph{full cover} to standardowy plan kliniczny dla glejaka: obszar napromieniany
 obejmuje całą nieprawidłowość widoczną w sekwencji FLAIR z marginesem 15~mm.
 \emph{narrow centered} dopasowuje się natomiast wyłącznie do rdzenia wzmacniającego
-się po kontraście, przez co nie obejmuje nacieku rozciągającego się poza nim. Na Rysunku \ref{fig:radiotherapy1} widzimy różnice rozwoju guza nieleczonego oraz poddanego terapii przy użuciu obu rozkładów dawki. Rusunek \ref{fig:radiotherapy2} wizualizuję gęstość komórek guza oraz maskę prominiowania. Rysunek \ref{fig:radiotherapy3} ukazuje stan końcowy dla guza nieleczonego i poddanego każdej z dwóch terapii. Możemy zauważyć, że rozkład \texttt{narrow\_centered} zgodnie z przewidywaniami nie był w stanie zredukować nacieków, przez co guz rozrósł się poza centrum. 
+się po kontraście, przez co nie obejmuje nacieku rozciągającego się poza nim. Na rysunku~\ref{fig:radiotherapy1} widzimy różnice rozwoju guza nieleczonego oraz poddanego terapii przy użyciu obu rozkładów dawki. Rysunek~\ref{fig:radiotherapy2} wizualizuje gęstość komórek guza oraz maskę promieniowania. Rysunek~\ref{fig:radiotherapy3} ukazuje stan końcowy dla guza nieleczonego i poddanego każdej z dwóch terapii. Możemy zauważyć, że rozkład \emph{narrow centered} zgodnie z przewidywaniami nie był w stanie zredukować nacieków, przez co guz rozrósł się poza centrum.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.93\linewidth]{rys1-geometrie-wiazki.png}
 \caption{Moment drugiego napromieniania ($t=45$) u jednego pacjenta. Kolor niebieski oznacza
 gęstość komórek nowotworowych, fioletowa poświata wskazuje natężenie radiacji, a kontur przerywany określa
-planowany obszar napromieniany. Widać różnicę geometrii: \emph{Full cover} obejmuje cały
-guz wraz z naciekiem, \emph{Narrow centred} mieści się w jego wnętrzu i omija naciek. Panel lewy to przebieg bez leczenia. Wykres dolny pokazuje rozchodzenie
+planowany obszar napromieniany. Widać różnicę geometrii: \emph{full cover} obejmuje cały
+guz wraz z naciekiem, \emph{narrow centered} mieści się w jego wnętrzu i omija naciek. Panel lewy to przebieg bez leczenia. Wykres dolny pokazuje rozchodzenie
 się krzywych opisujących masy guza.}
 \label{fig:radiotherapy1}
 \end{figure}
@@ -134,7 +134,7 @@ komórek nakładają się na siebie.}
 \caption{Stan końcowy. Bez leczenia guz rośnie do 2,3$\times$ masy początkowej, przy
 pełnym pokryciu spada do 0,32$\times$, natomiast przy wąskiej wiązce \emph{odrasta} do
 1,14$\times$, czyli powyżej stanu wyjściowego. W przekrojach widać pozostałość guza:
-przy \emph{full cover} prawie nic nie zostało, przy \emph{narrow centred} przetrwał
+przy \emph{full cover} prawie nic nie zostało, przy \emph{narrow centered} przetrwał
 cały naciek poza rdzeniem.}
 \label{fig:radiotherapy3}
 \end{figure}
@@ -146,7 +146,7 @@ leczenia oraz po jednej dla każdej z dwóch geometrii wiązki. Każda z nich to
 symulacja trójwymiarowa na siatce $160^3$ (woksel 1,5~mm), całkowana przez $T=80$
 jednostek czasu krokiem $\Delta t = 0{,}1$, czyli 800 kroków na przebieg. Z tych
 trajektorii odczytujemy całkowitą masę guza $y(t)$, która jest jedyną wielkością
-widzianą później przez modele zastępcze. W tabelce \ref{tab:train} przedstawione zostały parametry  wygenerowanych danych treningowych. Przeliczenie przebiegów uczących trwało około 60min na czterech kartach Ada 6000 48GB VRAM.
+widzianą później przez modele zastępcze. W tabeli~\ref{tab:train} przedstawione zostały parametry wygenerowanych danych treningowych. Przeliczenie przebiegów uczących trwało około 60~min na czterech kartach RTX 6000 Ada (48~GB VRAM).
 
 \begin{table}[H]
 \centering\small
@@ -165,8 +165,8 @@ szumu = 4\,680 niezależnie dopasowanych modeli na metodę\\
 
 \section{Modele}
 
-Porównałem ze sobą trzy modele na dokładnie korzystając z tej samej procedury uczącej, tak aby
-różnice wynikały z modelu. Wszystkie trzy przewidują tę
+Porównałem ze sobą trzy modele, korzystając z dokładnie tej samej procedury uczącej, tak aby
+różnice w wynikach wynikały wyłącznie z modelu. Wszystkie trzy przewidują tę
 samą wielkość, całkowitą masę guza $y(t)=\int_\Omega A\,dx$, i wszystkie dostają ten
 sam znany przebieg dawki $U(t)$.
 
@@ -189,13 +189,12 @@ zastąpić. Ten krok jest źródłem całego błędu strukturalnego:
 \qquad
 \int_\Omega (1-hA)\,Z\,A\,dx \;\approx\; z\,y ,
 \end{equation}
-gdzie $z(t)$ to skalarny zamiennik pola radiacji. Podstawienie daje klasyczną postać
+gdzie $z(t)$ to skalarny zamiennik pola uszkodzeń. Podstawienie daje klasyczną postać
 logistyczną z członem zabijania proporcjonalnym do $z y$.
 
 \paragraph{Poprawka wykładnika.} Człon $f y$ zakłada, że \emph{każda} komórka się dzieli.
 W równaniu Fishera--Kołmogorowa proliferacja zachodzi jednak głównie na froncie, który
-porusza się ze stałą prędkością $c = 2\sqrt{Df}$. Zatem jego objętość rośnie zgodnie z równaniem
-$(a+ct)^3$, czyli $y \sim (a+ct)^3$, skąd
+porusza się ze stałą prędkością $c = 2\sqrt{Df}$. Zatem objętość obszaru zajętego przez guz rośnie jak $y \sim (a+ct)^3$, skąd
 \begin{equation}
 \dot y \;=\; 3c\,(a+ct)^2 \;=\; 3c\,y^{2/3}
 \qquad\Longrightarrow\qquad
@@ -229,16 +228,16 @@ Drugie skrajne podejście rezygnuje z domykania \eqref{eq:redukcja} wzorem i kor
 Dwa wyjścia sieci pełnią różne role: 
 \begin{itemize}
     \item $g_1$ -- swobodny człon wzrostu.
-    \item $g_2$ -- składnik przewidujący zabijanie komórek. Dzięki przepuszczeniu przez softplus, zagwarantowane są wartości dodatnie, oraz przemnożenie przez $z$ oraz $y$ grarantuje propocjonalność do skumulowanego promieniowania oraz liczby komórek.
+    \item $g_2$ -- składnik przewidujący zabijanie komórek. Dzięki przepuszczeniu przez softplus, zagwarantowane są wartości dodatnie, a przemnożenie przez $z$ oraz $y$ gwarantuje proporcjonalność do skumulowanych uszkodzeń oraz liczby komórek.
 \end{itemize}
 Ten model nie jest w pełni bezstrukturalny, bo zatrzymuje równanie na
-$z$ oraz dwuliniową postać członu radiacji. Dla tego równiania przepada
+$z$ oraz dwuliniową postać członu radiacji. W tym równaniu przepada natomiast
 interpretowalna parametryzacja wzrostu: $\rho$, $K$ i $q$ znikają wewnątrz wag sieci.
 
 \subsection{PI-NODE}
 \label{sec:model-pinode}
 
-Jest to model hybrydowy, dodający do równania \eqref{eq:ode} uczoną sieć neuronową, która koryguję błedy wprowadzone przez całkowanie \eqref{eq:redukcja}.  Model ten jest opisany równaniem:
+Jest to model hybrydowy, dodający do równania \eqref{eq:ode} uczoną sieć neuronową, która koryguje błędy wprowadzone przez całkowanie \eqref{eq:redukcja}. Model ten jest opisany równaniem:
 
 \begin{equation}
 \dot y \;=\; \omega\underbrace{\, f_{\mathrm{RT}}(y,z,U;\theta)}_{\text{fizyka}}
@@ -248,13 +247,13 @@ Jest to model hybrydowy, dodający do równania \eqref{eq:ode} uczoną sieć neu
 \label{eq:pinode}
 \end{equation}
 gdzie $f_{\mathrm{RT}}$ jest dokładnie prawą stroną
-z ~\eqref{eq:ode}, natomiast człon $g_\psi$ to sieć dwuwarstwowa (32 neurony na warstwę, ReLU)
+z~\eqref{eq:ode}, natomiast człon $g_\psi$ to sieć dwuwarstwowa (32 neurony na warstwę, ReLU)
 o wejściu $(y,\,z,\,t/T,\,U)$ i jednym wyjściu. Dwie cechy implementacji są istotne dla interpretacji wyników. Po pierwsze, sieć neuronowa $g_\psi$ startuje wyzerowana, więc w chwili startu $g_\psi \equiv 0$ i model jest
 dokładnie modelem ODE. Po drugie, $g_\psi$ nie jest niczym ograniczony co do amplitudy. Jedyne, co
 ogranicza jego wpływ, to mnożnik $s_r$. To właśnie dlatego $s_r$ okazuje się decydować
 o dokładności (rozdz.~\ref{sec:cechowanie}), a różnica między PI-NODE a NODE
 z \eqref{eq:node} polega nie tyle na obecności fizyki, ile na tym, że w PI-NODE swoboda
-sieci jest przeskalowana w dół poprzez obecność członu mechanistycznego. 
+sieci jest przeskalowana w dół.
 
 \section{Trening}
 \label{sec:trening}
@@ -263,8 +262,9 @@ Wszystkie trzy modele przechodzą identyczną procedurę treningową. Dzięki te
 
 \subsection{Dopasowywane parametry}
 
-Parametry wejściowe to para (pacjent, geometria wiązki) wraz z jedną realizacją
-szumu. Dla każdej kolumny dopasowujemy osobny, niezależny komplet parametrów. Zbiory parametrów różnią się między modelami:
+Jedno zadanie dopasowania (dalej: \emph{kolumna}) to para (pacjent, geometria wiązki)
+wraz z jedną realizacją szumu. Dla każdej kolumny dopasowujemy osobny, niezależny komplet
+parametrów; nic nie jest współdzielone między pacjentami. Zbiory parametrów różnią się między modelami:
 \begin{align}
 \text{ODE}     &:\quad \Theta = \theta = (\rho, K, \gamma, \mu, \tau)
                   \;\;[\,{+}\,q \text{ dla wariantu uczonego}\,], \\
@@ -287,7 +287,7 @@ strata mierzy niezgodność z obserwacjami w oknie asymilacji:
 \end{equation}
 gdzie $\tilde y_i$ to zaszumiona obserwacja, a $\langle\cdot\rangle$ oznacza średnią po
 losowo wybranym bloku punktów trajektorii. Dla modelu ODE drugi składnik
-znika (nie ma $g_\psi$). Modele uczone są za pomocą optymizatora Adam przez 1200 epok. Wykorzystywane jest wygaszanie kosinusowe.
+znika (nie ma $g_\psi$). Modele uczone są za pomocą optymalizatora Adam przez 1200 epok. Wykorzystywane jest wygaszanie kosinusowe.
 
 \subsection{Jak mierzymy wynik}
 
@@ -303,17 +303,17 @@ asymilacji i w oknie prognozy:
 \end{equation}
 Normalizacja przez wielkość sygnału czyni błędy porównywalnymi między pacjentami
 o różnej masie guza. Okno $(35,80]$ zawiera drugie napromienianie,
-którego model nigdy nie widział, dzięki czemu ekspryment pokazuje zdolność modelu do przewidywania kolejnych stanów.
+którego model nigdy nie widział, dzięki czemu eksperyment pokazuje zdolność modelu do ekstrapolacji, a nie tylko interpolacji.
 
 \section{Wyniki}
 \label{sec:wyniki}
 
-W Tabelce \ref{tab:dokladnosc} zawarte są wyniki otrzymane przez model. Porównanie zostało przeprowadzone dla modeli ODE z $q=1$, $q=\frac{2}{3}$, modelu NODE oraz modelu PI-NODE z różnymi wartościami parametrów $\omega, s_r$. W pierwszej kolumnie znajduje się mediana RMSE z wszystkich eskperymentów, następnie rozstęp ćwiartkowy IQR. Dwie ostatnie kolumny to wartości RMSE dla rozkładu dawki \emph{full cover} oraz \emph{narrow}.
+W Tabelce \ref{tab:dokladnosc} zawarte są wyniki otrzymane przez model. Porównanie zostało przeprowadzone dla modeli ODE z $q=1$, $q=\frac{2}{3}$, modelu NODE oraz modelu PI-NODE z różnymi wartościami parametrów $\omega, s_r$. W pierwszej kolumnie znajduje się mediana RMSE ze wszystkich eksperymentów, następnie rozstęp ćwiartkowy IQR. Dwie ostatnie kolumny to wartości RMSE dla rozkładu dawki \emph{full cover} oraz \emph{narrow}.
 
 \begin{table}[H]
 \centering\footnotesize
 \setlength{\tabcolsep}{6pt}
-\begin{tabular}{@{}lrrrrr@{}}
+\begin{tabular}{@{}lrrrr@{}}
 \toprule
 \textbf{Model} & \textbf{Mediana} & \textbf{IQR} & \textbf{full cover} & \textbf{narrow} \\
 \midrule
@@ -331,7 +331,7 @@ porównywalne.}
 \label{tab:dokladnosc}
 \end{table}
 
-Patrząc na Tabelę ~\ref{tab:dokladnosc}, możemy sformułować trzy wnioski:
+Patrząc na tabelę~\ref{tab:dokladnosc}, możemy sformułować trzy wnioski:
 
 \begin{enumerate}
 \item Model hybrydowy wygrywa z oboma modelami. PI-NODE
@@ -343,103 +343,119 @@ przy dobrze dobranych wagach daje 12,76\,\% wobec 29,09\,\% dla ODE (sama fizyka
 Dla geometrii \emph{narrow centered}, w której wiązka nie obejmuje nacieku,
 PI-NODE daje 7,1\,\% wobec 28,5\,\% dla modelu mechanistycznego.
 
-\item NODE wypada najgorzej. Mimo, że NODE ma więcej swobody niż PI-NODE wypada nagorzej. W PI-NODE człon uczony jestprzemnożony przez małe $s_r$, które ogranicza jego wpływ. Kontrola skali członu
-uczonego jest tu ważniejsza niż obecność równania ODE.
+\item NODE wypada najgorzej, mimo że ma \emph{więcej} swobody niż PI-NODE. Różnica
+polega na tym, że w PI-NODE człon uczony jest przemnożony przez małe $s_r$, które
+ogranicza jego wpływ. Kontrola skali członu uczonego okazuje się więc ważniejsza niż
+sama obecność równania ODE.
 \end{enumerate}
 
 \subsection{Liczba i zaszumienie obserwacji}
 \label{sec:pasma}
 
-W kolejnym eksperymentcie sprawdziłem rozrzut modelu wywołany szumem
-pomiarowym. Aby to zbadać przeprowadziłem eksperymenty na wybranej trajektorii dla jednego pacjęta.
+W kolejnym eksperymencie sprawdziłem rozrzut prognozy wywołany szumem
+pomiarowym. Aby to zbadać, przeprowadziłem eksperymenty na wybranej trajektorii jednego pacjenta.
 
 \begin{enumerate}
-\item Bierzemy jedną trajektorię ground truth --- pacjenta będącego \emph{medianą} wszystkich przebiegów dla
+\item Bierzemy jedną trajektorię ground truth: pacjenta będącego \emph{medianą} wszystkich przebiegów dla
 danej geometrii, więc obraz jest reprezentatywny.
 \item Dla każdej liczby próbek $N \in \{5, 10, 15, 20\}$ w oknie asymilacji losujemy
-niezależnych realizacji szumu na poziomie
+80 niezależnych realizacji szumu na poziomie
 $\varepsilon_i \sim \mathcal{N}\!\big(0,\,(0{,}05\,y_i)^2\big)$. Odchylenie 5\,\% oznacza,
 że przedział $\pm 2\sigma$ obejmuje $\pm 10\,\%$ wartości.
-\item Do każdej realizacji dopasowujemy osobno każdy z trzech modeli, co daje 80 niezależnych
-prognoz.
+\item Do każdej realizacji dopasowujemy osobno każdy z trzech modeli, co daje 80
+niezależnych prognoz na model i na każde $N$.
 \item Rysujemy medianę zespołu oraz pasmo percentyli 25--75.
 \end{enumerate}
 
-Pasmo jest więc dokładnie tym rozrzutem prognozy, który wywołuje sam szum pomiarowy. Na Rysunku \ref{fig:pasma-waska} zobaczyć możemy dopasowanie poszczególych modeli, natomiast Tabelka \ref{tab:pasma} zawiera faktyczne wartości opisujące dopasowanie modeli.
+Pasmo jest więc dokładnie tym rozrzutem prognozy, który wywołuje sam szum pomiarowy. Na rysunku~\ref{fig:pasma-waska} widać dopasowanie poszczególnych modeli, natomiast tabela~\ref{tab:pasma} zawiera liczby opisujące to dopasowanie.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.95\linewidth]{rys4-pasma-waska-wiazka.png}
 \caption{\emph{Narrow centered} jest przypadkiem, w którym redukcja gubi informację.
-Mediana PI-NODE (niebieska) dosuwa się do prawdy wraz ze wzrostem $N$ i pasmo się zawęża.}
+Czarna linia (\emph{baseline}) to prawda z modelu przestrzennego. Mediana PI-NODE
+(niebieska) dosuwa się do niej wraz ze wzrostem $N$, a pasmo się zawęża. Mediany NODE
+(pomarańczowa) i ODE (zielona) po drugim napromienianiu wypłaszczają się i nie nadążają
+za odrostem.}
 \label{fig:pasma-waska}
 \end{figure}
 
 \begin{table}[H]
 \centering\footnotesize
-\setlength{\tabcolsep}{5pt}
-\begin{tabular}{@{}crrrr@{}}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{@{}crrrrrr@{}}
 \toprule
-& \multicolumn{2}{c}{\textbf{PI-NODE}} & \multicolumn{2}{c}{\textbf{ODE mechanistyczny}}\\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}
-$N$ & obciążenie & szerokość pasma & obciążenie & szerokość pasma\\
+& \multicolumn{2}{c}{\textbf{PI-NODE}} & \multicolumn{2}{c}{\textbf{NODE}}
+& \multicolumn{2}{c}{\textbf{ODE}}\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+$N$ & obciążenie & pasmo & obciążenie & pasmo & obciążenie & pasmo\\
 \midrule
-5  & 21,3\,\% & 6,19 & 40,7\,\% & 0,76\\
-10 & \phantom{0}3,9\,\% & 4,72 & 41,4\,\% & 0,71\\
-15 & \phantom{0}2,7\,\% & 5,35 & 41,6\,\% & 0,68\\
-20 & \phantom{0}9,8\,\% & 3,44 & 40,7\,\% & 0,72\\
+5  & 15,1\,\% & 1,94 & 39,0\,\% & 0,80 & 43,9\,\% & 0,44\\
+10 & 20,1\,\% & 1,49 & 39,5\,\% & 0,73 & 45,5\,\% & 0,34\\
+15 & 14,5\,\% & 1,48 & 38,4\,\% & 0,65 & 44,9\,\% & 0,20\\
+20 & 15,6\,\% & 1,39 & 38,1\,\% & 0,59 & 44,9\,\% & 0,23\\
 \bottomrule
 \end{tabular}
-\caption{Wąska wiązka, wartości w chwili $t=80$. Obciążenie = odległość mediany zespołu od
-prawdy (w \% prawdy); szerokość pasma = rozpiętość percentyli 10--90 w jednostkach masy.}
+\caption{Wąska wiązka, wartości w chwili $t=80$. Obciążenie = odległość mediany zespołu
+od prawdy (w \% prawdy); pasmo = szerokość przedziału międzykwartylowego w jednostkach
+masy.}
 \label{tab:pasma}
 \end{table}
 
-Po przeanalizowaniu Rysunku \ref{fig:pasma-waska} oraz Tabeli \ref{tab:pasma} możemy sformułować poniższe wnioski:
+Po przeanalizowaniu rysunku~\ref{fig:pasma-waska} oraz tabeli~\ref{tab:pasma} możemy sformułować poniższe wnioski:
 
 \begin{itemize}
-\item \textbf{Model mechanistyczny jest obciążony, a nie niepewny.} Jego obciążenie stoi
-na $\approx 41\,\%$ dla \emph{każdego} $N$, a pasmo jest wąskie (0,7). Dokładanie danych
-nic nie daje, model jest pewny zwracanego wyniku, bo brakującej
-informacji przestrzennej nie da się uzupełnić większą liczbą pomiarów skalarnych.
+\item \textbf{Model ODE jest obciążony, a nie niepewny.} Jego obciążenie stoi
+na $\approx 45\,\%$ dla \emph{każdego} $N$, a pasmo jest najwęższe ze wszystkich
+(0,20--0,44) i jeszcze się zawęża. Dokładanie danych nic nie daje: model jest pewny
+zwracanego wyniku, bo brakującej informacji przestrzennej nie da się uzupełnić większą
+liczbą pomiarów skalarnych.
 
-\item \textbf{PI-NODE jest niepewny, a nie obciążony.} Jego obciążenie spada z 21,3\,\%
-przy $N=5$ do 2,7--9,8\,\% od $N=10$ wzwyż, a pasmo zawęża się z 6,19 do 3,44. To błąd
-\emph{redukowalny} --- właśnie taki, jaki powinien maleć wraz z jakością danych.
+\item \textbf{PI-NODE jest niepewny, a nie obciążony.} Jego obciążenie utrzymuje się na
+poziomie 14--20\,\%, a pasmo zawęża się z 1,94 do 1,39. To błąd \emph{redukowalny},
+czyli dokładnie taki, jaki powinien maleć wraz z jakością danych.
 
-\item \textbf{Od $N=10$ dokładanie próbek daje już niewiele.} Największy skok następuje
-między 5 a 10 obserwacjami, dalej zysk jest marginalny. Przy $N=5$ model ma mniej punktów
-niż parametrów swobodnych i pasmo nie zbiega.
+\item \textbf{NODE zachowuje się jak ODE, a nie jak PI-NODE.} To najciekawszy wynik tego
+eksperymentu. Czysta sieć ma obciążenie 38--40\,\%, czyli niewiele mniejsze niż sama
+fizyka, i pasmo węższe niż PI-NODE. Dwa modele bez żadnego wspólnego elementu
+strukturalnego mylą się niemal identycznie. Potwierdza to wniosek z tabeli
+\ref{tab:dokladnosc}: o zachowaniu decyduje nie obecność członu mechanistycznego, lecz
+to, czy swoboda sieci jest kontrolowana.
+
+\item \textbf{Od $N=10$ dokładanie próbek daje już niewiele.} Największa poprawa zachodzi
+między 5 a 10 obserwacjami, dalej zysk jest marginalny.
 
 \item \textbf{Wniosek praktyczny: warto uśredniać po realizacjach szumu.} Mediana zespołu
-PI-NODE jest przy $N=15$ oddalona od prawdy o 2,7\,\%, podczas gdy typowe \emph{pojedyncze}
-dopasowanie ma błąd 26,5\,\%. Ta różnica jest wyłącznie wariancją, tani zespół
-(kilkanaście dopasowań na różnych realizacjach szumu i mediana) powinien zlikwidować
-większość tego błędu.
+PI-NODE przy $N=15$ daje błąd 8,5\,\% na całym oknie prognozy, podczas gdy typowe
+\emph{pojedyncze} dopasowanie myli się o 17,9\,\%. Ta różnica jest wyłącznie wariancją,
+więc tani zespół (kilkanaście dopasowań na różnych realizacjach szumu i mediana) usuwa
+większość tego błędu. Dla ODE to samo uśrednianie nie daje \emph{nic}, a dla NODE
+niewiele, co jest najostrzejszym dostępnym testem na to, że ich błąd jest obciążeniem,
+a nie wariancją.
 \end{itemize}
 
 \subsection{Ile błędu jest nieusuwalne}
 
-Osobno dopsowałem model mechanistyczny ODE to całej trajektorii, a nie jedynie na przedziale uczącym (na przedziale czasu $[0, 80$). Dzięki temu możliwe jest sprawdzenie, czy model mechanistyczny w ogóle jest w stanie dopasować się do prawdziwych trajektorii. Pozwala to, także oddzielić błąd wynikający z niedopasowania struktury modelu od błędu estymacji. Tabelka \ref{tab:necessary-error} przedstawia uzyskane wyniki.
+Osobno dopasowałem model mechanistyczny ODE do całej trajektorii, a nie jedynie na przedziale uczącym (czyli na całym przedziale $[0, 80]$). Dzięki temu można sprawdzić, czy model mechanistyczny w ogóle jest w stanie odtworzyć prawdziwe trajektorie. Pozwala to także oddzielić błąd wynikający z niedopasowania struktury modelu od błędu estymacji. Tabela~\ref{tab:necessary-error} przedstawia uzyskane wyniki.
 
 \begin{table}[H]
 \centering\small
 \begin{tabular}{@{}lc@{}}
 \toprule
-\textbf{Wykładnik $q$} & \textbf{Media błędu dopasowania}\\
+\textbf{Wykładnik $q$} & \textbf{Mediana błędu dopasowania}\\
 \midrule
-logistyczny ($q=1$)      & 6,96\,\%\\
-objętościowy ($q=2/3$)   & 6,79\,\%\\
-uczony wykładnik         & 6,24\,\%\\
+logistyczny ($q=1$)      & 8,17\,\%\\
+objętościowy ($q=2/3$)   & 7,83\,\%\\
+uczony wykładnik         & 7,14\,\%\\
 \bottomrule
 \end{tabular}
 \caption{Nieusuwalna część błędu przy redukcji dwustanowej.}
 \label{tab:necessary-error}
 \end{table}
 
-Około 6--7\,\% błędu jest więc nieusuwalne przy tej redukcji, niezależnie od
-tego, jak dobrze dopasujemy parametry. Najlepszy nasz model osiąga 11,1\,\%, zatem do
-podłogi strukturalnej brakuje około 4 punktów procentowych.
+Około 7--8\,\% błędu jest więc nieusuwalne przy tej redukcji, niezależnie od tego, jak
+dobrze dopasujemy parametry. Najlepszy nasz model osiąga 12,8\,\%, zatem do podłogi
+strukturalnej brakuje około 5 punktów procentowych.
 
 \section{Wagi modeli}
 \label{sec:cechowanie}
@@ -453,14 +469,14 @@ $(\rho,\gamma,\mu)$ przy ustalonym $K$. Zatem dla dowolnego $c>0$:
 \label{eq:cechowanie}
 \end{equation}
 
-Cokolwiek ustawimy jako $\omega$, optymalizator może to \emph{dokładnie} cofnąć,
+Cokolwiek ustawimy jako $\omega$, optymalizator może to cofnąć,
 przeskalowując $\theta$. To samo dotyczy $s_r$, ponieważ sieć kończy się warstwą afiniczną,
-więc $s_r$ wchłania się w jej wagi wyjściowe. To spostrzeżenie sprawdziłem numerycznie. Trajektorie dla $(\omega,\theta)$ i $(\omega/c,\,c\theta)$ oraz odpowiednik dla $s_r$ zgadzają się co do niepewności numerycznej oraz błedów w operacjach zmiennoprzecinkowych.
+więc $s_r$ wchłania się w jej wagi wyjściowe. To spostrzeżenie sprawdziłem numerycznie. Trajektorie dla $(\omega,\theta)$ i $(\omega/c,\,c\theta)$ oraz odpowiednik dla $s_r$ zgadzają się z dokładnością do błędu reprezentacji zmiennoprzecinkowej.
 
 \subsection{Czy współczynniki można dopasować?}
 \label{sec:uczone-wagi}
 
-Aby znaleźć najlepsze parametry $\omega$ i $s_r$, zdecydowałem się przeprowadzić eksperyment, gdzie dopasuje ich wartości razem z zwykłymi parametrami modelu. Niestety to podejście nie ma prawa działać, co możemy wywnioskować z równania~\eqref{eq:cechowanie}. Skoro strata jest dokładnie niezmiennicza wzdłuż kierunku
+Aby znaleźć najlepsze parametry $\omega$ i $s_r$, zdecydowałem się przeprowadzić eksperyment, w którym dopasowuję ich wartości razem ze zwykłymi parametrami modelu. Niestety to podejście nie ma prawa działać, co możemy wywnioskować z równania~\eqref{eq:cechowanie}. Skoro strata jest dokładnie niezmiennicza wzdłuż kierunku
 $(\omega,\theta) \rightarrow (\omega/c,\,c\theta)$, to pochodna wzdłuż tego kierunku wynosi
 zero. Gradient nie ma czego minimalizować, więc optymalizator zostaje tam, gdzie go
 postawiono (tabela~\ref{tab:uczone-wagi}):
@@ -468,7 +484,7 @@ postawiono (tabela~\ref{tab:uczone-wagi}):
 \begin{table}[H]
 \centering\footnotesize
 \setlength{\tabcolsep}{6pt}
-\begin{tabular}{@{}llrrr@{}}
+\begin{tabular}{@{}llrr@{}}
 \toprule
 \textbf{Start} $(\omega,\,s_r)$ & \textbf{Koniec} $(\omega,\,s_r)$ &
 \textbf{Trening} & \textbf{Test} \\
@@ -484,11 +500,12 @@ zbieżności do wspólnej wartości.}
 \label{tab:uczone-wagi}
 \end{table}
 
-Wnioskiem z tego eskperymentu jest konieczność przeprowadznia poszukiwania kombinacji optymalnych wartości parametrów $\omega$ i $s_r$. To przeszukanie zostało zrobione dla kombinacji wartości z przedziału $[0.001, 1] \times [0.001, 1]$. W Tabeli \ref{tab:dokladnosc} zostały użyte wartości parametrów dające najlepsze wyniki. 
+Wnioskiem z tego eksperymentu jest konieczność przeszukania siatki wartości $\omega$ i $s_r$. Przeszukanie przeprowadziłem dla kombinacji z przedziału $[0{,}001;\,1] \times [0{,}001;\,1]$. W tabeli~\ref{tab:dokladnosc} użyłem wartości dających najlepszy wynik.
 
 \section{Wnioski i dalsze kroki}
+\label{sec:wnioski}
 
-Analizując tabele z wynikami, myślę, że jasno możemy stwierdzić, że model PI-NODE ma sens oraz pozwala on na uzyskanie lepszych wyników niż model ODE i NODE w krótkim czasie oraz beż użycia GPU. Wnioski z przeprowadzonych eksperymentów:
+Analizując tabele z wynikami, myślę, że jasno możemy stwierdzić, że model PI-NODE ma sens oraz pozwala on na uzyskanie lepszych wyników niż model ODE i NODE w krótkim czasie i bez użycia GPU. Wnioski z przeprowadzonych eksperymentów:
 
 
 \begin{itemize}
@@ -516,13 +533,53 @@ Ważne elementy metody:
 \item Nauka współczynników $\omega$ i $s_r$ jest niemożliwa. Kierunek jest płaski, więc wynik zależy
 wyłącznie od punktu startowego (rozdz.~\ref{sec:uczone-wagi});
 
-\item $s_r$ można opisać jako jako kontrolę swobody członu uczonego, a nie jako wagę
+\item $s_r$ można opisać jako kontrolę swobody członu uczonego, a nie jako wagę
 fizyki, to ona rządzi dokładnością (11,2 punktu wobec 2,6 dla $\omega$). Najmocniej
 widać to w zestawieniu PI-NODE z NODE: ta sama sieć, pozbawiona ograniczenia skali,
 zachowuje się jak model mechanistyczny, a nie jak model hybrydowy
 (rozdz.~\ref{sec:pasma}).
 \end{itemize}
 
-Bardzo ważnym wnioskiem jest też znalezienie sufitu dopasowania dla metody dwustanowej względem wartości ground truth. Tabela \ref{tab:necessary-error} pokazuję, że limitem modelu dwustanowego jest relRMSE na poziomie około 6--7 \%, osiągnięcie lepszego wyniku jest po prostu niemożliwe zakładając redukcję.
+Bardzo ważnym wnioskiem jest też znalezienie sufitu dopasowania dla metody dwustanowej
+względem wartości ground truth. Tabela~\ref{tab:necessary-error} pokazuje, że limitem
+modelu dwustanowego jest relRMSE na poziomie około 7--8\,\%, osiągnięcie lepszego wyniku
+jest po prostu niemożliwe zakładając redukcję.
+
+\subsection*{Dalszy rozwój}
+
+Z przeprowadzonych eksperymentów wyłania się dość spójny obraz tego, gdzie jeszcze jest
+miejsce na poprawę.
+
+Najtańsza rzecz do zrobienia wynika wprost z eksperymentu z pasmami. Skoro błąd PI-NODE
+okazał się w dużej mierze wariancją, a nie obciążeniem, to uśrednienie kilkunastu
+dopasowań wykonanych na różnych realizacjach szumu usuwa jego sporą część. Nie wymaga to
+żadnej zmiany w samym modelu ani w procedurze uczenia, a jedynie powtórzenia dopasowania
+i wzięcia mediany. Co istotne, ten sam zabieg nie pomaga ani modelowi ODE, ani NODE, co
+dobrze pokazuje, że ich problem jest innej natury i nie da się go obejść sztuczkami
+statystycznymi.
+
+Drugi kierunek jest poważniejszy i dotyczy samego stanu zredukowanego. Dopasowanie
+na całej domenie czasowej eksperymentu pokazało, że przy dwóch zmiennych stanu istnieje twardy sufit dokładności,
+którego nie przeskoczy żadne ulepszenie członu uczonego. Jeśli chcemy zejść poniżej tego poziomu, trzeba dołożyć
+modelowi trzecią zmienną niosącą jakąś informację przestrzenną, na przykład promień guza
+albo udział masy znajdującej się wewnątrz wiązki. Sieć ma dziś odtworzyć wielkość
+z natury przestrzenną, mając do dyspozycji wyłącznie dwa skalary co jest bardzo ubogim stanem danych wejściowych.
+
+Trzecia obserwacja dotyczy informacji, która jest dostępna za darmo, a której obecnie nie
+wykorzystujemy. Plan leczenia z góry określa, jak dobrze wiązka pokrywa guza, i to właśnie
+ta wielkość najsilniej różnicuje zachowanie modeli. Przy dobrym pokryciu sama fizyka radzi
+sobie przyzwoicie, przy słabym zawodzi, a człon uczony odwrotnie. Warto spróbować podać tę
+wielkość sieci jako dodatkowe wejście.
+
+Są też kierunki, które raczej nie mają sensu. Przede wszystkim nie warto próbować uczyć
+współczynników $\omega$ i $s_r$ razem z resztą parametrów.
+Niewiele daje też strojenie wykładnika $q$ czy innych szczegółów rdzenia mechanistycznego,
+bo wpływ tych wyborów okazał się o rząd wielkości mniejszy niż wpływ skali członu uczonego.
+Wreszcie, dalsze przeszukiwanie siatki $(\omega, s_r)$ wokół znalezionego optimum
+prawdopodobnie już nic nie wniesie, bo optimum jest bardzo wyraźne.
+
+Podsumowując, metoda działa i ma sens, ale większość łatwych zysków została już
+zaaplikowana. Dalszy postęp wymaga raczej zmiany tego, co model w ogóle widzi, niż
+dalszego dostrajania tego, jak się uczy.
 
 \end{document}
