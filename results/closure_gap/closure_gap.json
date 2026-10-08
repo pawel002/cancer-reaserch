@@ -1,0 +1,40 @@
+{
+ "n_patients": 40,
+ "epochs": 1500,
+ "restarts": 4,
+ "rows": [
+  {
+   "backbone": "logistic",
+   "oracle_rel_rmse_median": 8.172891616821289,
+   "oracle_rel_rmse_p90": 13.272123336791992,
+   "by_case": {
+    "full_cover": 9.387950897216797,
+    "narrow_centered": 7.5470428466796875
+   },
+   "q_median": 1.0,
+   "K_median": 1.6711647510528564
+  },
+  {
+   "backbone": "volumetric",
+   "oracle_rel_rmse_median": 7.827502250671387,
+   "oracle_rel_rmse_p90": 11.859783172607422,
+   "by_case": {
+    "full_cover": 7.6379499435424805,
+    "narrow_centered": 7.982494354248047
+   },
+   "q_median": 0.6666666865348816,
+   "K_median": 2.0568084716796875
+  },
+  {
+   "backbone": "power",
+   "oracle_rel_rmse_median": 7.136899948120117,
+   "oracle_rel_rmse_p90": 10.513556480407715,
+   "by_case": {
+    "full_cover": 6.880312442779541,
+    "narrow_centered": 7.180118083953857
+   },
+   "q_median": 0.7244176268577576,
+   "K_median": 1.707049012184143
+  }
+ ]
+}

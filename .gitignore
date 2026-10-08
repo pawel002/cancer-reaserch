@@ -218,9 +218,37 @@ __marimo__/
 .streamlit/secrets.toml
 
 
-# results
-datasets*
-experiments*
-noisy_observations*
-real_data*
+# ---------------------------------------------------------------------------
+# Dane i wyniki
+#
+# Kod (src/, experiments/, report/) jest w repozytorium w całości. Poniżej
+# wykluczone są wyłącznie rzeczy, które albo da się odtworzyć skryptami, albo
+# pochodzą z zewnętrznego zbioru i nie powinny być tu kopiowane.
+# ---------------------------------------------------------------------------
+
+# zbiór wejściowy GliODIL (duży, dane pacjentów; patrz README)
+real_data/
+
+# generowane przez experiments/gen_cohort.py
+datasets/
+
+# generowane przez pozostałe skrypty: wagi modeli, animacje, rysunki
 results/
+# ...ale drobne podsumowania liczbowe trzymamy w repo, żeby dało się
+# odczytać wyniki bez powtarzania ~20 godzin obliczeń na GPU
+!results/
+results/*
+!results/benchmark/
+results/benchmark/*
+!results/benchmark/*/
+results/benchmark/*/*
+!results/benchmark/*/summary.csv
+!results/benchmark/*/bench.json
+!results/bands/
+results/bands/*
+!results/bands/band_summary.json
+!results/closure_gap/
+!results/trained_weights/
+
+# lokalna konfiguracja narzędzi, nie część artefaktu badawczego
+.claude/

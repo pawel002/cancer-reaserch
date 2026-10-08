@@ -1,17 +1,12 @@
-"""Physics-Informed Closure Learning for Reduced Radiotherapy Tumor Dynamics.
+"""Fizyka + uczenie maszynowe dla zredukowanej dynamiki guza pod radioterapią.
 
-A small, modular playground reproducing the surrogate-model experiments from
-the paper (latex/main.tex):
+Pakiet zawiera trzy warstwy:
 
-    * mechanistic 2-state ODE surrogate          -> cancer_sim.mechanistic
-    * data-driven NODE / physics-informed PI-NODE -> cancer_sim.surrogates
-    * batched ensemble training                   -> cancer_sim.training
-    * data loading + noisy observation ensembles  -> cancer_sim.data
-    * metrics / plotting                          -> cancer_sim.metrics, .plotting
+* :mod:`cancer_sim.realdata` --- model referencyjny: anatomia pacjenta z GliODIL,
+  pole wiązki i trójwymiarowy solver reakcyjno-dyfuzyjny z radioterapią (GPU).
+* :mod:`cancer_sim.gpu` --- modele zastępcze (ODE, NODE, PI-NODE) oraz wsadowe
+  dopasowanie tysięcy niezależnych modeli w jednym tensorze.
+* :mod:`cancer_sim.viz` --- rysunki i animacje użyte w raporcie.
 
-Experiment entry points live in ``experiments/``.
+Punkty wejścia eksperymentów znajdują się w katalogu ``experiments/``.
 """
-
-from . import config, data, mechanistic, metrics, plotting, surrogates, training  # noqa: F401
-
-__all__ = ["config", "data", "mechanistic", "metrics", "plotting", "surrogates", "training"]

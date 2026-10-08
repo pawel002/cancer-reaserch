@@ -1,1 +1,0 @@
-code/cases/GliODIL/run_GliODIL.sh
