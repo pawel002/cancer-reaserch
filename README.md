@@ -97,7 +97,7 @@ python experiments/trained_weights.py
 Każdy skrypt uruchomiony z `--help` wypisze swoje opcje. Kroki 3-6 korzystają
 z wyników kroku 2, więc same nie zadziałają na pustym repozytorium.
 
-## Złożenie raportu
+## Raport
 
 
 Rysunki w `report/src/` są wersjonowane, więc raport składa się bez
